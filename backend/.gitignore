@@ -1,35 +1,68 @@
+# ===================================
 # Dependencies
+# ===================================
 node_modules/
-package-lock.json
-yarn.lock
 
-# Build output
+# ===================================
+# Lock Files (Optional - Uncomment if needed)
+# ===================================
+# package-lock.json
+# yarn.lock
+
+# ===================================
+# Build Output
+# ===================================
 dist/
 build/
 
-# Environment variables
+# ===================================
+# Environment Variables (CRITICAL!)
+# ===================================
 .env
 .env.local
 .env.*.local
 
+# ===================================
+# Database Files (CRITICAL!)
+# ===================================
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+prisma/dev.db
+prisma/*.db
+
+# ===================================
+# Prisma
+# ===================================
+prisma/migrations/
+# Uncomment if you want to ignore generated Prisma Client
+# node_modules/.prisma/
+# node_modules/@prisma/
+
+# ===================================
 # Logs
+# ===================================
 logs/
 *.log
 npm-debug.log*
 
-# Uploads
+# ===================================
+# Uploads (User-generated content)
+# ===================================
 uploads/*
 !uploads/.gitkeep
 
-# IDE
+# ===================================
+# IDE & Editor
+# ===================================
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS
+# ===================================
+# OS Files
+# ===================================
 .DS_Store
 Thumbs.db
-
-# Prisma
-prisma/migrations/
