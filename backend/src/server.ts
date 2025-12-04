@@ -1,9 +1,10 @@
 import express, { Application } from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { env } from './config/env';
 import { errorHandler, notFound } from './middleware/errorHandler';
 import { apiLimiter } from './middleware/rateLimit';
+import { securityHeaders, corsConfig, apiSecurityHeaders } from './middleware/security';
+import logger from './utils/logger';
 
 // Import routes
 import authRoutes from './routes/auth.routes';
@@ -13,20 +14,21 @@ import campaignRoutes from './routes/campaign.routes';
 const app: Application = express();
 
 // Security middleware
-app.use(helmet());
-app.use(cors({
-    origin: env.FRONTEND_URL,
-    credentials: true,
-}));
+app.use(securityHeaders);
+app.use(corsConfig);
+app.use(apiSecurityHeaders);
+
+// Cookie parser for CSRF
+app.use(cookieParser());
 
 // Body parsing middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rate limiting
+// Rate limiting for all API routes
 app.use('/api', apiLimiter);
 
-// Health check
+// Health check (no rate limit)
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -44,9 +46,9 @@ app.use(errorHandler);
 const PORT = env.PORT || 5000;
 
 app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📝 Environment: ${env.NODE_ENV}`);
-    console.log(`🌐 Frontend URL: ${env.FRONTEND_URL}`);
+    logger.info(`🚀 Server running on port ${PORT}`);
+    logger.info(`📝 Environment: ${env.NODE_ENV}`);
+    logger.info(`🌐 Frontend URL: ${env.FRONTEND_URL}`);
 });
 
 export default app;
