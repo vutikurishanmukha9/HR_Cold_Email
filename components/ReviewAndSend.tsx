@@ -54,8 +54,8 @@ const ReviewAndSend: React.FC<ReviewAndSendProps> = ({
     const displayList = campaignRecipients || recipients;
     const isReady = credentials && recipients.length > 0 && emailTemplate.subject && emailTemplate.body;
 
-    const sentCount = Object.values(sendProgress).filter(s => s.status === EmailStatus.Sent).length;
-    const failedCount = Object.values(sendProgress).filter(s => s.status === EmailStatus.Failed).length;
+    const sentCount = Object.values(sendProgress).filter((s: SendProgressState) => s.status === EmailStatus.Sent).length;
+    const failedCount = Object.values(sendProgress).filter((s: SendProgressState) => s.status === EmailStatus.Failed).length;
     const campaignSize = campaignRecipients?.length ?? recipientsForCampaign.length;
     const progressPercentage = campaignSize > 0 ? ((sentCount + failedCount) / campaignSize) * 100 : 0;
 
