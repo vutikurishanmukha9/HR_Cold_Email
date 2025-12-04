@@ -24,7 +24,7 @@ export class EmailService {
     async sendEmail(config: SMTPConfig, options: EmailOptions): Promise<void> {
         try {
             // Create transporter
-            const transporter = nodemailer.createTransporter({
+            const transporter = nodemailer.createTransport({
                 host: 'smtp.gmail.com',
                 port: 587,
                 secure: false,

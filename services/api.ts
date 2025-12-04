@@ -168,6 +168,32 @@ class ApiClient {
         return data;
     }
 
+    /**
+     * Send campaign emails via backend (secure - no credentials exposed)
+     */
+    async sendCampaign(data: {
+        credentialEmail: string;
+        subject: string;
+        body: string;
+        recipients: Array<{
+            email: string;
+            fullName: string;
+            companyName: string;
+            jobTitle?: string;
+        }>;
+        batchSize?: number;
+        batchDelay?: number;
+    }) {
+        return this.request<{
+            message: string;
+            results: Array<{ email: string; status: 'sent' | 'failed'; error?: string }>;
+            summary: { total: number; sent: number; failed: number };
+        }>('/campaigns/send', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
     logout() {
         this.setToken(null);
     }

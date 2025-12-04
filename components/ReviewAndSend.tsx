@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Credentials, Recipient, EmailTemplate, EmailStatus, SendProgressState } from '../types';
-import { useScript } from '../hooks/useScript';
 
 interface ReviewAndSendProps {
     credentials: Credentials | null;
@@ -54,7 +53,6 @@ const ReviewAndSend: React.FC<ReviewAndSendProps> = ({
 }) => {
     const [selectedEmails, setSelectedEmails] = useState<string[]>(() => recipients.map(r => r.email));
     const [campaignRecipients, setCampaignRecipients] = useState<Recipient[] | null>(null);
-    const smtpStatus = useScript('https://smtpjs.com/v3/smtp.js');
 
     useEffect(() => {
         setSelectedEmails(recipients.map(r => r.email));
@@ -140,7 +138,6 @@ const ReviewAndSend: React.FC<ReviewAndSendProps> = ({
     };
 
     const getButtonText = () => {
-        if (smtpStatus === 'loading') return 'Initializing Sender...';
         if (isSending) return 'Sending...';
         if (isScheduling) return 'Schedule Campaign';
         return `Send ${recipientsForCampaign.length} Emails`;
@@ -247,19 +244,11 @@ const ReviewAndSend: React.FC<ReviewAndSendProps> = ({
 
                                 {scheduleError && <p className="text-sm text-red-600 mt-2">{scheduleError}</p>}
 
-                                {smtpStatus === 'error' && (
-                                    <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-center">
-                                        <p className="text-sm text-red-800">
-                                            <strong>Error:</strong> Could not initialize the email sending service. Please check your internet connection, disable any ad-blockers, and refresh the page.
-                                        </p>
-                                    </div>
-                                )}
-
                                 <div className="mt-6 flex justify-between">
                                     <button type="button" onClick={onBack} disabled={isSending} className="py-2 px-6 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">
                                         Back
                                     </button>
-                                    <button type="button" onClick={handleActionClick} disabled={smtpStatus !== 'ready' || isSending || (isScheduling && !scheduleDateTime) || recipientsForCampaign.length === 0} className="inline-flex items-center justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <button type="button" onClick={handleActionClick} disabled={isSending || (isScheduling && !scheduleDateTime) || recipientsForCampaign.length === 0} className="inline-flex items-center justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
                                         {getButtonText()}
                                     </button>
                                 </div>

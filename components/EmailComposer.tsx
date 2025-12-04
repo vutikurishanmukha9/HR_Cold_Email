@@ -4,15 +4,16 @@ import { EmailTemplate } from '../types';
 
 interface EmailComposerProps {
     initialTemplate: EmailTemplate;
-    onSave: (template: EmailTemplate) => void;
+    onCompose: (template: EmailTemplate) => void;
     onBack: () => void;
+    recipients?: any[];
 }
 
 const personalizationTags = ['{fullName}', '{companyName}', '{jobTitle}'];
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB per attachment
 const MAX_SUBJECT_LENGTH = 200;
 
-const EmailComposer: React.FC<EmailComposerProps> = ({ initialTemplate, onSave, onBack }) => {
+const EmailComposer: React.FC<EmailComposerProps> = ({ initialTemplate, onCompose, onBack }) => {
     const [subject, setSubject] = useState(initialTemplate.subject);
     const [body, setBody] = useState(initialTemplate.body);
     const [attachments, setAttachments] = useState<File[]>(initialTemplate.attachments || []);
@@ -106,7 +107,7 @@ const EmailComposer: React.FC<EmailComposerProps> = ({ initialTemplate, onSave, 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (subject.trim() && body.trim()) {
-            onSave({ subject, body, attachments });
+            onCompose({ subject, body, attachments });
         }
     };
 

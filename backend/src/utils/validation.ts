@@ -50,3 +50,24 @@ export const paginationSchema = z.object({
     page: z.string().transform(Number).pipe(z.number().int().min(1)).optional(),
     limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
 });
+
+// Schema for sending campaign emails via backend
+export const sendCampaignSchema = z.object({
+    credentialEmail: z.string().email('Invalid sender email'),
+    subject: z.string().min(1, 'Subject is required').max(500, 'Subject too long'),
+    body: z.string().min(1, 'Email body is required'),
+    recipients: z.array(z.object({
+        email: z.string().email('Invalid recipient email'),
+        fullName: z.string().min(1, 'Full name is required'),
+        companyName: z.string().min(1, 'Company name is required'),
+        jobTitle: z.string().optional(),
+    })).min(1, 'At least one recipient is required').max(500, 'Maximum 500 recipients per batch'),
+    batchSize: z.number().int().min(1).max(50).default(10),
+    batchDelay: z.number().int().min(0).max(300).default(60),
+});
+
+// Schema for refresh token
+export const refreshTokenSchema = z.object({
+    refreshToken: z.string().min(1, 'Refresh token is required'),
+});
+

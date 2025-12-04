@@ -1,7 +1,10 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest, RecipientDTO } from '../types';
 import campaignService from '../services/campaign.service';
+import credentialService from '../services/credential.service';
+import emailService from '../services/email.service';
 import { parseExcelFile } from '../utils/excel';
+import { AppError } from '../middleware/errorHandler';
 import multer from 'multer';
 import path from 'path';
 import { env } from '../config/env';
@@ -30,6 +33,21 @@ export const upload = multer({
         }
     },
 });
+
+interface SendCampaignRequest {
+    credentialId?: string;
+    credentialEmail?: string;
+    subject: string;
+    body: string;
+    recipients: Array<{
+        email: string;
+        fullName: string;
+        companyName: string;
+        jobTitle?: string;
+    }>;
+    batchSize?: number;
+    batchDelay?: number;
+}
 
 export class CampaignController {
     async createCampaign(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
@@ -100,6 +118,112 @@ export class CampaignController {
             next(error);
         }
     }
+
+    /**
+     * Send campaign emails using backend Nodemailer
+     * This is the secure method - no credentials exposed to client
+     */
+    async sendCampaign(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const {
+                credentialEmail,
+                subject,
+                body,
+                recipients,
+                batchSize = 10,
+                batchDelay = 60
+            } = req.body as SendCampaignRequest;
+
+            if (!recipients || recipients.length === 0) {
+                throw new AppError('No recipients provided', 400);
+            }
+
+            if (!subject || !body) {
+                throw new AppError('Subject and body are required', 400);
+            }
+
+            // Get the user's email credential
+            const credentials = await credentialService.getCredentials(req.user!.id);
+
+            // Find the credential by email or use default
+            let credential;
+            if (credentialEmail) {
+                const cred = credentials.find(c => c.email === credentialEmail);
+                if (!cred) {
+                    throw new AppError('Email credential not found', 404);
+                }
+                credential = await credentialService.getCredentialById(req.user!.id, cred.id);
+            } else {
+                const defaultCred = credentials.find(c => c.isDefault);
+                if (!defaultCred) {
+                    throw new AppError('No email credential configured', 400);
+                }
+                credential = await credentialService.getCredentialById(req.user!.id, defaultCred.id);
+            }
+
+            // Send emails in batches
+            const results: Array<{ email: string; status: 'sent' | 'failed'; error?: string }> = [];
+
+            for (let i = 0; i < recipients.length; i++) {
+                const recipient = recipients[i];
+
+                try {
+                    // Personalize subject and body
+                    const personalizedSubject = emailService.personalizeContent(subject, {
+                        fullName: recipient.fullName,
+                        companyName: recipient.companyName,
+                        jobTitle: recipient.jobTitle || '',
+                    });
+
+                    const personalizedBody = emailService.personalizeContent(body, {
+                        fullName: recipient.fullName,
+                        companyName: recipient.companyName,
+                        jobTitle: recipient.jobTitle || '',
+                    });
+
+                    // Send email
+                    await emailService.sendEmail(
+                        { email: credential.email, appPassword: credential.appPassword },
+                        {
+                            from: credential.email,
+                            to: recipient.email,
+                            subject: personalizedSubject,
+                            html: personalizedBody,
+                        }
+                    );
+
+                    results.push({ email: recipient.email, status: 'sent' });
+                } catch (error: any) {
+                    console.error(`Failed to send to ${recipient.email}:`, error.message);
+                    results.push({
+                        email: recipient.email,
+                        status: 'failed',
+                        error: error.message || 'Unknown error'
+                    });
+                }
+
+                // Batch delay - wait between batches
+                if ((i + 1) % batchSize === 0 && i < recipients.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, batchDelay * 1000));
+                } else if (i < recipients.length - 1) {
+                    // Small delay between individual emails (300ms)
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+            }
+
+            const sentCount = results.filter(r => r.status === 'sent').length;
+            const failedCount = results.filter(r => r.status === 'failed').length;
+
+            res.json({
+                message: `Campaign sent: ${sentCount} succeeded, ${failedCount} failed`,
+                results,
+                summary: { total: recipients.length, sent: sentCount, failed: failedCount }
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 export default new CampaignController();
+

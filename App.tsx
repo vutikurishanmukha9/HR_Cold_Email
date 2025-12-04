@@ -5,7 +5,7 @@ import CredentialsForm from './components/CredentialsForm';
 import RecipientUploader from './components/RecipientUploader';
 import EmailComposer from './components/EmailComposer';
 import ReviewAndSend from './components/ReviewAndSend';
-import { Credentials, Recipient, EmailTemplate } from './types';
+import { Credentials, Recipient, EmailTemplate, EmailStatus, SendProgressState } from './types';
 import apiClient from './services/api';
 
 // Login/Register Component
@@ -55,8 +55,8 @@ const AuthScreen: React.FC = () => {
           <button
             onClick={() => setIsLogin(true)}
             className={`flex-1 py-2 px-4 rounded-md transition-colors ${isLogin
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-800'
+              ? 'bg-white text-indigo-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-800'
               }`}
           >
             Login
@@ -64,8 +64,8 @@ const AuthScreen: React.FC = () => {
           <button
             onClick={() => setIsLogin(false)}
             className={`flex-1 py-2 px-4 rounded-md transition-colors ${!isLogin
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-800'
+              ? 'bg-white text-indigo-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-800'
               }`}
           >
             Register
@@ -160,6 +160,12 @@ const App: React.FC = () => {
     attachments: [],
   });
 
+  // State for ReviewAndSend component
+  const [sendProgress, setSendProgress] = useState<Record<string, import('./types').SendProgressState>>({});
+  const [isSending, setIsSending] = useState(false);
+  const [isCampaignFinished, setIsCampaignFinished] = useState(false);
+  const [scheduledTime, setScheduledTime] = useState<Date | null>(null);
+
   const totalSteps = 4;
 
   // Show loading screen while checking auth
@@ -186,9 +192,24 @@ const App: React.FC = () => {
       setCredentials(creds);
       setStep(2);
     } catch (error: any) {
-      // Show user-friendly error
       const errorMessage = error.message || 'Failed to save credentials';
-      alert(`Error: ${errorMessage}\n\nPlease make sure:\n1. Backend server is running\n2. You're logged in\n3. Gmail credentials are correct`);
+
+      // Handle specific error cases with user-friendly messages
+      if (errorMessage.toLowerCase().includes('already exists')) {
+        // Credential already saved - this is actually okay, proceed to next step
+        setCredentials(creds);
+        setStep(2);
+        return;
+      }
+
+      // For other errors, show appropriate message
+      if (errorMessage.toLowerCase().includes('network') || errorMessage.toLowerCase().includes('fetch')) {
+        alert('Unable to connect to the server. Please make sure the backend is running.');
+      } else if (errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('401')) {
+        alert('Your session has expired. Please log in again.');
+      } else {
+        alert(`Error: ${errorMessage}`);
+      }
       console.error('Credential save error:', error);
     }
   };
@@ -263,8 +284,89 @@ const App: React.FC = () => {
               credentials={credentials}
               recipients={recipients}
               emailTemplate={emailTemplate}
+              sendProgress={sendProgress}
+              isSending={isSending}
+              isCampaignFinished={isCampaignFinished}
+              scheduledTime={scheduledTime}
+              onScheduleOrSend={async (config) => {
+                // Handle scheduling
+                if (config.time) {
+                  setScheduledTime(config.time);
+                  return;
+                }
+
+                // Handle sending via backend
+                setIsSending(true);
+
+                // Initialize progress for all recipients
+                const initialProgress: Record<string, SendProgressState> = {};
+                config.recipientsToSend.forEach(r => {
+                  initialProgress[r.email] = { status: EmailStatus.Queued };
+                });
+                setSendProgress(initialProgress);
+
+                try {
+                  // Mark all as sending
+                  config.recipientsToSend.forEach(r => {
+                    setSendProgress(prev => ({
+                      ...prev,
+                      [r.email]: { status: EmailStatus.Sending }
+                    }));
+                  });
+
+                  // Call backend API
+                  const result = await apiClient.sendCampaign({
+                    credentialEmail: credentials.email,
+                    subject: emailTemplate.subject,
+                    body: emailTemplate.body,
+                    recipients: config.recipientsToSend,
+                    batchSize: config.batchSize,
+                    batchDelay: config.batchDelay,
+                  });
+
+                  // Update progress based on results
+                  result.results.forEach(r => {
+                    setSendProgress(prev => ({
+                      ...prev,
+                      [r.email]: {
+                        status: r.status === 'sent'
+                          ? EmailStatus.Sent
+                          : EmailStatus.Failed,
+                        error: r.error,
+                      }
+                    }));
+                  });
+
+                  setIsCampaignFinished(true);
+                } catch (error: any) {
+                  console.error('Campaign send error:', error);
+                  // Mark all as failed
+                  config.recipientsToSend.forEach(r => {
+                    setSendProgress(prev => ({
+                      ...prev,
+                      [r.email]: {
+                        status: EmailStatus.Failed,
+                        error: error.message || 'Campaign failed'
+                      }
+                    }));
+                  });
+                  setIsCampaignFinished(true);
+                } finally {
+                  setIsSending(false);
+                }
+              }}
+              onCancelSchedule={() => setScheduledTime(null)}
               onBack={handleBack}
-              onSendComplete={() => { }}
+              onReset={() => {
+                setStep(1);
+                setCredentials(null);
+                setRecipients([]);
+                setEmailTemplate({ subject: '', body: '', attachments: [] });
+                setSendProgress({});
+                setIsSending(false);
+                setIsCampaignFinished(false);
+                setScheduledTime(null);
+              }}
             />
           )}
         </div>
