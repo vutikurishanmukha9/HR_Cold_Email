@@ -1,107 +1,249 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# HiHR - Smart HR Email Outreach
 
-# StreamMail: Cold Email Outreach Platform
+A modern, enterprise-grade platform for managing cold email outreach campaigns with personalization, scheduling, and batch sending capabilities. Built with React, TypeScript, and Node.js.
 
-A powerful, user-friendly platform for managing cold email outreach campaigns with personalization, scheduling, and batch sending capabilities.
+---
 
-## Features
+## Overview
 
-✨ **Personalized Emails** - Use dynamic placeholders like `{fullName}`, `{companyName}`, and `{jobTitle}` to personalize each email
+HiHR streamlines HR recruitment and outreach workflows by enabling professionals to send personalized bulk emails efficiently. The platform features a premium dark-themed interface with glassmorphism design elements.
 
-📊 **Bulk Upload** - Import recipients from Excel files (.xlsx, .xls) with automatic duplicate detection
+## Key Features
 
-✍️ **Rich Text Editor** - Compose professional emails with formatting, lists, and links
+### Email Campaign Management
+- **Personalized Emails** - Dynamic placeholders (`{fullName}`, `{companyName}`, `{jobTitle}`) for tailored messaging
+- **Rich Text Editor** - Compose professional emails with formatting, lists, and hyperlinks
+- **Attachments** - Support for files up to 10MB per attachment
+- **Scheduling** - Schedule campaigns for future delivery
+- **Batch Sending** - Configurable batch size and delays to optimize deliverability
 
-📎 **Attachments** - Add files up to 10MB per attachment
+### Data Management
+- **Bulk Upload** - Import recipients from Excel files (.xlsx, .xls)
+- **Duplicate Detection** - Automatic identification and removal of duplicate emails
+- **Recipient Selection** - Choose specific recipients before sending
 
-⏰ **Scheduling** - Schedule campaigns for future sending
+### Monitoring
+- **Real-time Progress** - Live status updates during campaign execution
+- **Campaign Results** - Detailed sent/failed statistics after completion
+- **Estimated Time** - Remaining time calculations for active campaigns
 
-🔄 **Batch Sending** - Configure batch size and delays to avoid spam filters
+### Security
+- **Encrypted Credentials** - AES-256 encryption for stored credentials
+- **JWT Authentication** - Secure user sessions with access and refresh tokens
+- **Rate Limiting** - Protection against abuse with per-route rate limits
+- **CORS/CSP Headers** - Configured security headers
 
-📈 **Real-time Progress** - Track sending status with live progress updates and estimated time remaining
+---
 
-🔒 **Secure** - Uses Gmail App Passwords, credentials never stored
+## Technology Stack
 
-## Run Locally
+### Frontend
+| Technology | Purpose |
+|------------|---------|
+| React 19 | UI Framework |
+| TypeScript | Type Safety |
+| Tailwind CSS | Styling |
+| Vite | Build Tool |
+| SheetJS | Excel Parsing |
 
-**Prerequisites:** Node.js (v16 or higher)
+### Backend
+| Technology | Purpose |
+|------------|---------|
+| Node.js | Runtime |
+| Express | API Framework |
+| TypeScript | Type Safety |
+| Prisma | ORM |
+| SQLite | Database (Dev) |
+| Nodemailer | Email Sending |
+| Winston | Logging |
 
-1. **Install dependencies:**
+---
+
+## Getting Started
+
+### Prerequisites
+- Node.js v18 or higher
+- npm or yarn
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-username/HR_Cold_Email.git
+   cd HR_Cold_Email
+   ```
+
+2. **Install frontend dependencies**
    ```bash
    npm install
    ```
 
-2. **Set up your Gmail App Password:**
-   - Create a Google App Password by following [this guide](https://support.google.com/accounts/answer/185833)
-   - Set the `GEMINI_API_KEY` in [.env.local](.env.local) (optional, for AI features)
+3. **Install backend dependencies**
+   ```bash
+   cd backend
+   npm install
+   ```
 
-3. **Run the development server:**
+4. **Configure environment variables**
+   
+   Create `backend/.env`:
+   ```env
+   DATABASE_URL="file:./dev.db"
+   JWT_SECRET="your-jwt-secret-key"
+   REFRESH_TOKEN_SECRET="your-refresh-token-secret"
+   ENCRYPTION_KEY="your-32-character-encryption-key"
+   FRONTEND_URL="http://localhost:3000"
+   ```
+
+5. **Initialize the database**
+   ```bash
+   cd backend
+   npx prisma migrate dev
+   ```
+
+6. **Start the development servers**
+   
+   Terminal 1 (Backend):
+   ```bash
+   cd backend
+   npm run dev
+   ```
+   
+   Terminal 2 (Frontend):
    ```bash
    npm run dev
    ```
 
-4. **Open your browser:**
+7. **Open the application**
+   
    Navigate to `http://localhost:3000`
 
-## How to Use
+---
 
-### Step 1: Connect Gmail Account
+## Usage Guide
+
+### Step 1: Authentication
+- Register a new account or login with existing credentials
+- User sessions are managed via JWT tokens
+
+### Step 2: Connect Gmail Account
 - Enter your Gmail address
 - Provide your 16-character Google App Password
-- Spaces in the password are automatically removed
+- Credentials are encrypted and stored securely
 
-### Step 2: Upload Recipients
-- Prepare an Excel file with columns: "Full name", "Email address", "Company", and optionally "Job Title"
+> For information on creating a Google App Password, visit the [Google Help Center](https://support.google.com/accounts/answer/185833)
+
+### Step 3: Upload Recipients
+- Prepare an Excel file with columns:
+  - `Full name` or `Name`
+  - `Email address` or `Email`
+  - `Company` or `Organization`
+  - `Job title` (optional)
 - Drag and drop or select your file (max 5MB)
-- Review the parsed recipients (duplicates are automatically removed)
+- Review the parsed recipients
 
-### Step 3: Compose Email
+### Step 4: Compose Email
 - Write your subject line (max 200 characters)
-- Compose your email body using the rich text editor
-- Use personalization tags from the sidebar
-- Add attachments if needed (max 10MB each)
+- Use the rich text editor for email body
+- Insert personalization tags from the sidebar
+- Add attachments if needed
 
-### Step 4: Review & Send
-- Review your campaign summary
+### Step 5: Review and Send
+- Review campaign summary
 - Select recipients to include
-- Configure batch size and delay between batches
-- Choose to send immediately or schedule for later
-- Monitor real-time progress with status updates
+- Configure batch size and delay settings
+- Send immediately or schedule for later
+- Monitor real-time progress
+
+---
+
+## Project Structure
+
+```
+HR_Cold_Email/
+├── App.tsx                 # Main application component
+├── index.html              # Entry HTML
+├── index.css               # Global styles (dark theme)
+├── index.tsx               # React entry point
+├── components/
+│   ├── CredentialsForm.tsx
+│   ├── RecipientUploader.tsx
+│   ├── EmailComposer.tsx
+│   ├── ReviewAndSend.tsx
+│   └── StepIndicator.tsx
+├── contexts/
+│   └── AuthContext.tsx
+├── services/
+│   └── api.ts
+├── types.ts
+└── backend/
+    ├── src/
+    │   ├── server.ts
+    │   ├── routes/
+    │   ├── controllers/
+    │   ├── middleware/
+    │   ├── services/
+    │   └── utils/
+    ├── prisma/
+    │   └── schema.prisma
+    └── docs/
+        └── POSTGRESQL_MIGRATION.md
+```
+
+---
+
+## API Endpoints
+
+### Authentication
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/register` | Register new user |
+| POST | `/api/auth/login` | User login |
+| POST | `/api/auth/refresh` | Refresh access token |
+| POST | `/api/auth/logout` | User logout |
+
+### Credentials
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/credentials` | Save email credentials |
+| GET | `/api/credentials` | List user credentials |
+| DELETE | `/api/credentials/:id` | Delete credential |
+
+### Campaigns
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/campaigns/send` | Send email campaign |
+
+---
 
 ## Troubleshooting
 
 ### Email Sending Fails
-- Verify your Google App Password is correct (16 characters)
-- Ensure "Less secure app access" is enabled in your Google account
-- Check that SMTP.js library loaded successfully (refresh the page)
-- Disable browser ad-blockers that might block SMTP.js
+- Verify your Google App Password is correct (16 characters, no spaces)
+- Ensure 2-Factor Authentication is enabled on your Google account
+- Check that the recipient email addresses are valid
 
 ### File Upload Issues
 - Ensure file is .xlsx or .xls format
 - Check file size is under 5MB
-- Verify columns match expected names (case-insensitive)
+- Verify column names match expected patterns
 
-### Scheduling Not Working
-- Ensure scheduled time is in the future
-- Check browser allows JavaScript timers
-- Don't close the browser tab before scheduled time
+### Authentication Issues
+- Clear browser cookies and try again
+- Check that the backend server is running on port 5000
+- Verify environment variables are set correctly
 
-## Technical Stack
+---
 
-- **Frontend:** React 19 with TypeScript
-- **Styling:** Tailwind CSS
-- **Email Sending:** SMTP.js
-- **File Parsing:** SheetJS (xlsx)
-- **Build Tool:** Vite
+## Security Considerations
 
-## Security Notes
+- Credentials are encrypted using AES-256 before storage
+- Passwords are hashed using bcrypt with salt rounds
+- JWT tokens expire after 15 minutes (access) / 7 days (refresh)
+- Rate limiting prevents brute force attacks
+- Input validation using Zod schemas
 
-- Credentials are only used during the active session
-- No data is stored on any server
-- All processing happens in your browser
-- Use Google App Passwords, never your actual Gmail password
+---
 
 ## License
 
@@ -109,4 +251,10 @@ This project is private and for demonstration purposes.
 
 ---
 
-View your app in AI Studio: https://ai.studio/apps/temp/1
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a Pull Request

@@ -7,53 +7,84 @@ interface StepIndicatorProps {
 }
 
 const steps = [
-  { number: 1, title: 'Connect Gmail' },
-  { number: 2, title: 'Upload Recipients' },
-  { number: 3, title: 'Compose Email' },
-  { number: 4, title: 'Review & Send' },
+  { number: 1, title: 'Connect Gmail', icon: '📧' },
+  { number: 2, title: 'Upload Recipients', icon: '📋' },
+  { number: 3, title: 'Compose Email', icon: '✏️' },
+  { number: 4, title: 'Review & Send', icon: '🚀' },
 ];
 
 const StepIndicator: React.FC<StepIndicatorProps> = ({ currentStep }) => {
   return (
-    <nav aria-label="Progress">
-      <ol role="list" className="flex items-center">
-        {steps.map((step, stepIdx) => (
-          <li key={step.title} className={`relative ${stepIdx !== steps.length - 1 ? 'pr-8 sm:pr-20' : ''} flex-1`}>
-            {currentStep > step.number ? (
-              <>
-                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                  <div className="h-0.5 w-full bg-indigo-600" />
-                </div>
-                <div className="relative flex h-8 w-8 items-center justify-center bg-indigo-600 rounded-full">
-                   <svg className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.052-.143z" clipRule="evenodd" />
+    <div className="glass-card p-4">
+      <div className="flex items-center justify-between">
+        {steps.map((step, idx) => (
+          <React.Fragment key={step.number}>
+            {/* Step Circle */}
+            <div className="flex flex-col items-center">
+              <div
+                className={`
+                  w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold
+                  transition-all duration-500 relative
+                  ${currentStep > step.number
+                    ? 'text-white shadow-lg'
+                    : currentStep === step.number
+                      ? 'text-white shadow-lg'
+                      : 'text-gray-500'
+                  }
+                `}
+                style={{
+                  background: currentStep > step.number
+                    ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                    : currentStep === step.number
+                      ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                      : 'rgba(255,255,255,0.05)',
+                  border: currentStep >= step.number ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                  boxShadow: currentStep === step.number ? '0 0 30px rgba(102, 126, 234, 0.5)' : 'none',
+                }}
+              >
+                {currentStep > step.number ? (
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
-                </div>
-              </>
-            ) : currentStep === step.number ? (
-              <>
-                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                  <div className="h-0.5 w-full bg-gray-200" />
-                </div>
-                <div className="relative flex h-8 w-8 items-center justify-center bg-white border-2 border-indigo-600 rounded-full">
-                  <span className="h-2.5 w-2.5 bg-indigo-600 rounded-full" aria-hidden="true" />
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                  <div className="h-0.5 w-full bg-gray-200" />
-                </div>
-                <div className="relative flex h-8 w-8 items-center justify-center bg-white border-2 border-gray-300 rounded-full" />
-              </>
-            )}
-            <div className="absolute -bottom-7 w-max text-center sm:text-left sm:w-auto sm:bottom-auto sm:left-0 sm:top-10">
-              <span className={`text-sm font-medium ${currentStep >= step.number ? 'text-indigo-600' : 'text-gray-500'}`}>{step.title}</span>
+                ) : (
+                  <span>{step.number}</span>
+                )}
+
+                {/* Pulse animation for current step */}
+                {currentStep === step.number && (
+                  <div className="absolute inset-0 rounded-xl animate-ping opacity-20"
+                    style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+                  />
+                )}
+              </div>
+
+              {/* Step Title */}
+              <span
+                className={`
+                  mt-3 text-xs font-medium text-center transition-colors duration-300
+                  ${currentStep >= step.number ? 'text-white' : 'text-gray-500'}
+                `}
+              >
+                {step.title}
+              </span>
             </div>
-          </li>
+
+            {/* Connector Line */}
+            {idx < steps.length - 1 && (
+              <div className="flex-1 mx-2 h-0.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                <div
+                  className="h-full transition-all duration-500 rounded-full"
+                  style={{
+                    width: currentStep > step.number ? '100%' : '0%',
+                    background: 'linear-gradient(90deg, #10b981 0%, #667eea 100%)',
+                  }}
+                />
+              </div>
+            )}
+          </React.Fragment>
         ))}
-      </ol>
-    </nav>
+      </div>
+    </div>
   );
 };
 
