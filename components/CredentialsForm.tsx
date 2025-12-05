@@ -1,14 +1,15 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Credentials } from '../types';
 
 interface CredentialsFormProps {
     onSave: (credentials: Credentials) => void;
+    initialCredentials?: Credentials | null;
 }
 
-const CredentialsForm: React.FC<CredentialsFormProps> = ({ onSave }) => {
-    const [email, setEmail] = useState('');
-    const [appPassword, setAppPassword] = useState('');
+const CredentialsForm: React.FC<CredentialsFormProps> = ({ onSave, initialCredentials }) => {
+    const [email, setEmail] = useState(initialCredentials?.email || '');
+    const [appPassword, setAppPassword] = useState(initialCredentials?.appPassword || '');
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 

@@ -1,7 +1,7 @@
 {
-  "name": "streammail-backend",
+  "name": "hihr-backend",
   "version": "1.0.0",
-  "description": "Backend API for StreamMail cold email outreach platform",
+  "description": "HiHR - Smart HR Email Outreach Platform Backend API",
   "main": "dist/server.js",
   "type": "commonjs",
   "scripts": {
@@ -12,11 +12,14 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "lint": "eslint src/**/*.ts",
-    "format": "prettier --write \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\"",
+    "test": "jest"
   },
   "keywords": [
     "email",
     "outreach",
+    "hr",
+    "recruitment",
     "smtp",
     "api"
   ],
@@ -43,6 +46,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
+    "@types/jest": "^29.5.14",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.14.0",
@@ -50,9 +54,11 @@
     "@typescript-eslint/eslint-plugin": "^8.18.1",
     "@typescript-eslint/parser": "^8.18.1",
     "eslint": "^9.16.0",
+    "jest": "^29.7.0",
     "nodemon": "^3.1.7",
     "prettier": "^3.4.2",
     "prisma": "^5.22.0",
+    "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
   }

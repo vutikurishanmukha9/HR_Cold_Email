@@ -230,8 +230,32 @@ class ApiClient {
         });
     }
 
-    logout() {
-        this.setToken(null);
+    async logout() {
+        try {
+            await this.request('/auth/logout', { method: 'POST' });
+        } catch {
+            // Ignore errors - still clear local token
+        } finally {
+            this.setToken(null);
+            localStorage.removeItem('refreshToken');
+        }
+    }
+
+    async refreshToken() {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) {
+            throw new Error('No refresh token available');
+        }
+
+        const data = await this.request<{
+            accessToken: string;
+        }>('/auth/refresh', {
+            method: 'POST',
+            body: JSON.stringify({ refreshToken }),
+        });
+
+        this.setToken(data.accessToken);
+        return data;
     }
 }
 

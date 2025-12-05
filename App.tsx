@@ -222,17 +222,10 @@ const App: React.FC = () => {
 
   const handleCredentialsSave = async (creds: Credentials) => {
     try {
-      console.log('Attempting to save credentials...');
-      // Save credentials to backend (encrypted)
       await apiClient.saveCredential(creds.email, creds.appPassword, true);
-      console.log('Credentials saved successfully');
       setCredentials(creds);
       setStep(2);
     } catch (error: any) {
-      console.error('Full error object:', error);
-      console.error('Error type:', typeof error);
-      console.error('Error constructor:', error?.constructor?.name);
-
       // Extract error message properly
       let errorMessage = 'Failed to save credentials';
 
@@ -241,21 +234,16 @@ const App: React.FC = () => {
       } else if (typeof error === 'string') {
         errorMessage = error;
       } else if (error && typeof error === 'object') {
-        // Try to extract message from object
         errorMessage = error.message || error.error || JSON.stringify(error);
       }
 
-      console.error('Extracted error message:', errorMessage);
-
       // Handle specific error cases with user-friendly messages
       if (errorMessage.toLowerCase().includes('already exists')) {
-        // Credential already saved - this is actually okay, proceed to next step
         setCredentials(creds);
         setStep(2);
         return;
       }
 
-      // For other errors, show appropriate message
       if (errorMessage.toLowerCase().includes('network') || errorMessage.toLowerCase().includes('fetch') || errorMessage.toLowerCase().includes('failed to fetch')) {
         alert('Unable to connect to the server. Please make sure the backend is running on port 5000.');
       } else if (errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('401')) {
