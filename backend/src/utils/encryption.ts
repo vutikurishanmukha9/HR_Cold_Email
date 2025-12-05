@@ -25,18 +25,27 @@ export const encrypt = (text: string): string => {
  * Decrypts data encrypted with the encrypt function
  */
 export const decrypt = (text: string): string => {
-    const parts = text.split(':');
-    const iv = Buffer.from(parts.shift()!, 'hex');
-    const encryptedText = parts.join(':');
+    try {
+        const parts = text.split(':');
+        if (parts.length < 2) {
+            throw new Error('Invalid encrypted data format');
+        }
 
-    const decipher = crypto.createDecipheriv(
-        ALGORITHM,
-        Buffer.from(env.ENCRYPTION_KEY, 'utf-8').slice(0, 32),
-        iv
-    );
+        const iv = Buffer.from(parts.shift()!, 'hex');
+        const encryptedText = parts.join(':');
 
-    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
+        const decipher = crypto.createDecipheriv(
+            ALGORITHM,
+            Buffer.from(env.ENCRYPTION_KEY, 'utf-8').slice(0, 32),
+            iv
+        );
 
-    return decrypted;
+        let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+
+        return decrypted;
+    } catch (error: any) {
+        console.error('[Encryption] Decryption failed:', error.message);
+        throw new Error('Failed to decrypt credentials. The encryption key may have changed. Please delete and re-add your email credentials.');
+    }
 };

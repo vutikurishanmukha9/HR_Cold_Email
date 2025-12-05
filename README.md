@@ -32,6 +32,7 @@ HiHR streamlines HR recruitment and outreach workflows by enabling professionals
 - **JWT Authentication** - Secure user sessions with access and refresh tokens
 - **Rate Limiting** - Protection against abuse with per-route rate limits
 - **CORS/CSP Headers** - Configured security headers
+- **Error Boundary** - Graceful error handling for React components
 
 ---
 
@@ -44,7 +45,8 @@ HiHR streamlines HR recruitment and outreach workflows by enabling professionals
 | TypeScript | Type Safety |
 | Tailwind CSS | Styling |
 | Vite | Build Tool |
-| SheetJS | Excel Parsing |
+| SheetJS (xlsx) | Excel Parsing |
+| Zod | Validation |
 
 ### Backend
 | Technology | Purpose |
@@ -54,8 +56,10 @@ HiHR streamlines HR recruitment and outreach workflows by enabling professionals
 | TypeScript | Type Safety |
 | Prisma | ORM |
 | SQLite | Database (Dev) |
+| PostgreSQL | Database (Prod) |
 | Nodemailer | Email Sending |
 | Winston | Logging |
+| Helmet | Security Headers |
 
 ---
 
@@ -69,7 +73,7 @@ HiHR streamlines HR recruitment and outreach workflows by enabling professionals
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/HR_Cold_Email.git
+   git clone https://github.com/vutikurishanmukha9/HR_Cold_Email.git
    cd HR_Cold_Email
    ```
 
@@ -88,17 +92,28 @@ HiHR streamlines HR recruitment and outreach workflows by enabling professionals
    
    Create `backend/.env`:
    ```env
+   # Server Configuration
+   NODE_ENV=development
+   PORT=5000
+
+   # Database (SQLite for development)
    DATABASE_URL="file:./dev.db"
-   JWT_SECRET="your-jwt-secret-key"
-   REFRESH_TOKEN_SECRET="your-refresh-token-secret"
-   ENCRYPTION_KEY="your-32-character-encryption-key"
-   FRONTEND_URL="http://localhost:3000"
+
+   # JWT Secrets (use strong random strings in production)
+   JWT_SECRET=your-jwt-secret-key-min-32-characters
+   REFRESH_TOKEN_SECRET=your-refresh-token-secret-min-32-chars
+
+   # Encryption Key (MUST be exactly 32 characters)
+   ENCRYPTION_KEY=your-32-character-encryption-key
+
+   # CORS
+   FRONTEND_URL=http://localhost:3000
    ```
 
 5. **Initialize the database**
    ```bash
    cd backend
-   npx prisma migrate dev
+   npx prisma db push
    ```
 
 6. **Start the development servers**
@@ -128,7 +143,7 @@ HiHR streamlines HR recruitment and outreach workflows by enabling professionals
 
 ### Step 2: Connect Gmail Account
 - Enter your Gmail address
-- Provide your 16-character Google App Password
+- Provide your 16-character Google App Password (no spaces)
 - Credentials are encrypted and stored securely
 
 > For information on creating a Google App Password, visit the [Google Help Center](https://support.google.com/accounts/answer/185833)
@@ -165,16 +180,20 @@ HR_Cold_Email/
 ├── index.html              # Entry HTML
 ├── index.css               # Global styles (dark theme)
 ├── index.tsx               # React entry point
+├── vite.config.ts          # Vite configuration
+├── tailwind.config.js      # Tailwind CSS configuration
+├── postcss.config.js       # PostCSS configuration
 ├── components/
 │   ├── CredentialsForm.tsx
 │   ├── RecipientUploader.tsx
 │   ├── EmailComposer.tsx
 │   ├── ReviewAndSend.tsx
-│   └── StepIndicator.tsx
+│   ├── StepIndicator.tsx
+│   └── ErrorBoundary.tsx   # Error handling component
 ├── contexts/
 │   └── AuthContext.tsx
 ├── services/
-│   └── api.ts
+│   └── api.ts              # API client with auth
 ├── types.ts
 └── backend/
     ├── src/
@@ -201,6 +220,7 @@ HR_Cold_Email/
 | POST | `/api/auth/login` | User login |
 | POST | `/api/auth/refresh` | Refresh access token |
 | POST | `/api/auth/logout` | User logout |
+| GET | `/api/auth/me` | Get current user |
 
 ### Credentials
 | Method | Endpoint | Description |
@@ -212,6 +232,8 @@ HR_Cold_Email/
 ### Campaigns
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| POST | `/api/campaigns` | Create campaign |
+| GET | `/api/campaigns` | List campaigns |
 | POST | `/api/campaigns/send` | Send email campaign |
 
 ---
@@ -222,6 +244,15 @@ HR_Cold_Email/
 - Verify your Google App Password is correct (16 characters, no spaces)
 - Ensure 2-Factor Authentication is enabled on your Google account
 - Check that the recipient email addresses are valid
+- Check backend console for detailed SMTP error messages
+
+### Decryption Error ("bad decrypt")
+- The ENCRYPTION_KEY in .env may have changed since credentials were saved
+- Solution: Reset the database and re-add your credentials
+  ```bash
+  cd backend
+  npx prisma db push --force-reset
+  ```
 
 ### File Upload Issues
 - Ensure file is .xlsx or .xls format
@@ -229,7 +260,7 @@ HR_Cold_Email/
 - Verify column names match expected patterns
 
 ### Authentication Issues
-- Clear browser cookies and try again
+- Clear browser cookies and local storage
 - Check that the backend server is running on port 5000
 - Verify environment variables are set correctly
 
@@ -237,17 +268,38 @@ HR_Cold_Email/
 
 ## Security Considerations
 
-- Credentials are encrypted using AES-256 before storage
+- Credentials are encrypted using AES-256-CBC before storage
 - Passwords are hashed using bcrypt with salt rounds
 - JWT tokens expire after 15 minutes (access) / 7 days (refresh)
 - Rate limiting prevents brute force attacks
-- Input validation using Zod schemas
+- Input validation using Zod schemas on both frontend and backend
+- Helmet middleware for security headers
+- CORS configured for specific frontend origin
+
+---
+
+## Production Deployment
+
+For production deployment, refer to [`backend/docs/POSTGRESQL_MIGRATION.md`](backend/docs/POSTGRESQL_MIGRATION.md) for database migration instructions.
+
+Key considerations:
+- Use PostgreSQL instead of SQLite
+- Set `NODE_ENV=production`
+- Use strong, random secrets for JWT and encryption
+- Configure proper CORS origins
+- Enable HTTPS
 
 ---
 
 ## License
 
 This project is private and for demonstration purposes.
+
+---
+
+## Author
+
+V Shanmukha
 
 ---
 
