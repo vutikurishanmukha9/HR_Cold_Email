@@ -38,18 +38,54 @@ class ApiClient {
             headers['Authorization'] = `Bearer ${this.token}`;
         }
 
-        const response = await fetch(`${this.baseURL}${endpoint}`, {
-            ...options,
-            headers,
-        });
+        try {
+            const response = await fetch(`${this.baseURL}${endpoint}`, {
+                ...options,
+                headers,
+            });
 
-        const data = await response.json();
+            let data: any;
+            const contentType = response.headers.get('content-type');
 
-        if (!response.ok) {
-            throw new Error(data.error || 'An error occurred');
+            // Try to parse JSON response
+            if (contentType && contentType.includes('application/json')) {
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    data = { error: 'Invalid JSON response from server' };
+                }
+            } else {
+                const text = await response.text();
+                data = { error: text || 'Unexpected server response' };
+            }
+
+            if (!response.ok) {
+                // Extract error message from various possible formats
+                // Backend returns: { success: false, error: { message: "...", code: "...", type: "..." } }
+                let errorMessage = `Server error: ${response.status} ${response.statusText}`;
+
+                if (data?.error?.message) {
+                    // Nested error object format
+                    errorMessage = data.error.message;
+                } else if (typeof data?.error === 'string') {
+                    // Simple error string
+                    errorMessage = data.error;
+                } else if (data?.message) {
+                    // Direct message property
+                    errorMessage = data.message;
+                }
+
+                throw new Error(errorMessage);
+            }
+
+            return data;
+        } catch (error: any) {
+            // Handle network errors and other fetch failures
+            if (error instanceof Error) {
+                throw error;
+            }
+            throw new Error('Network error: Unable to connect to server');
         }
-
-        return data;
     }
 
     // Auth endpoints

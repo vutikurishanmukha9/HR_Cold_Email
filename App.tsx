@@ -222,12 +222,30 @@ const App: React.FC = () => {
 
   const handleCredentialsSave = async (creds: Credentials) => {
     try {
+      console.log('Attempting to save credentials...');
       // Save credentials to backend (encrypted)
       await apiClient.saveCredential(creds.email, creds.appPassword, true);
+      console.log('Credentials saved successfully');
       setCredentials(creds);
       setStep(2);
     } catch (error: any) {
-      const errorMessage = error.message || 'Failed to save credentials';
+      console.error('Full error object:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error constructor:', error?.constructor?.name);
+
+      // Extract error message properly
+      let errorMessage = 'Failed to save credentials';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof error === 'object') {
+        // Try to extract message from object
+        errorMessage = error.message || error.error || JSON.stringify(error);
+      }
+
+      console.error('Extracted error message:', errorMessage);
 
       // Handle specific error cases with user-friendly messages
       if (errorMessage.toLowerCase().includes('already exists')) {
@@ -238,14 +256,13 @@ const App: React.FC = () => {
       }
 
       // For other errors, show appropriate message
-      if (errorMessage.toLowerCase().includes('network') || errorMessage.toLowerCase().includes('fetch')) {
-        alert('Unable to connect to the server. Please make sure the backend is running.');
+      if (errorMessage.toLowerCase().includes('network') || errorMessage.toLowerCase().includes('fetch') || errorMessage.toLowerCase().includes('failed to fetch')) {
+        alert('Unable to connect to the server. Please make sure the backend is running on port 5000.');
       } else if (errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('401')) {
         alert('Your session has expired. Please log in again.');
       } else {
-        alert(`Error: ${errorMessage}`);
+        alert('Error: ' + errorMessage);
       }
-      console.error('Credential save error:', error);
     }
   };
 
