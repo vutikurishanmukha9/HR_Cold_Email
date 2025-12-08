@@ -62,6 +62,11 @@ export const sendCampaignSchema = z.object({
         companyName: z.string().min(1, 'Company name is required'),
         jobTitle: z.string().optional(),
     })).min(1, 'At least one recipient is required').max(500, 'Maximum 500 recipients per batch'),
+    attachments: z.array(z.object({
+        filename: z.string(),
+        content: z.string(), // base64 encoded
+        contentType: z.string(),
+    })).optional(),
     batchSize: z.number().int().min(1).max(50).default(10),
     batchDelay: z.number().int().min(0).max(300).default(60),
 });

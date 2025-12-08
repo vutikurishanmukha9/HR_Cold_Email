@@ -30,6 +30,8 @@ HiHR streamlines HR recruitment and outreach workflows by enabling professionals
 ### Security
 - **Encrypted Credentials** - AES-256 encryption for stored credentials
 - **JWT Authentication** - Secure user sessions with access and refresh tokens
+- **Account Lockout** - 5 failed login attempts = 30 minute lockout
+- **Password Strength Meter** - Real-time visual feedback during registration
 - **Rate Limiting** - Protection against abuse with per-route rate limits
 - **CORS/CSP Headers** - Configured security headers
 - **Error Boundary** - Graceful error handling for React components
@@ -189,7 +191,8 @@ HR_Cold_Email/
 │   ├── EmailComposer.tsx
 │   ├── ReviewAndSend.tsx
 │   ├── StepIndicator.tsx
-│   └── ErrorBoundary.tsx   # Error handling component
+│   ├── ErrorBoundary.tsx        # Error handling component
+│   └── PasswordStrengthMeter.tsx # Password strength visual feedback
 ├── contexts/
 │   └── AuthContext.tsx
 ├── services/
@@ -271,6 +274,8 @@ HR_Cold_Email/
 - Credentials are encrypted using AES-256-CBC before storage
 - Passwords are hashed using bcrypt with salt rounds
 - JWT tokens expire after 15 minutes (access) / 7 days (refresh)
+- **Account Lockout**: 5 failed login attempts triggers 30-minute lockout
+- **Password Strength Meter**: Visual feedback encourages strong passwords
 - Rate limiting prevents brute force attacks
 - Input validation using Zod schemas on both frontend and backend
 - Helmet middleware for security headers

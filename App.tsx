@@ -5,6 +5,7 @@ import CredentialsForm from './components/CredentialsForm';
 import RecipientUploader from './components/RecipientUploader';
 import EmailComposer from './components/EmailComposer';
 import ReviewAndSend from './components/ReviewAndSend';
+import PasswordStrengthMeter from './components/PasswordStrengthMeter';
 import { Credentials, Recipient, EmailTemplate, EmailStatus, SendProgressState } from './types';
 import apiClient from './services/api';
 
@@ -129,11 +130,7 @@ const AuthScreen: React.FC = () => {
                 required
                 minLength={8}
               />
-              {!isLogin && (
-                <p className="text-xs text-gray-500 mt-2">
-                  Min 8 characters with uppercase, lowercase & number
-                </p>
-              )}
+              {!isLogin && <PasswordStrengthMeter password={password} />}
             </div>
 
             {error && (
@@ -372,6 +369,7 @@ const App: React.FC = () => {
                     subject: emailTemplate.subject,
                     body: emailTemplate.body,
                     recipients: config.recipientsToSend,
+                    attachments: emailTemplate.attachments,
                     batchSize: config.batchSize,
                     batchDelay: config.batchDelay,
                   });

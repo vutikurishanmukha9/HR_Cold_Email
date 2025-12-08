@@ -217,16 +217,39 @@ class ApiClient {
             companyName: string;
             jobTitle?: string;
         }>;
+        attachments?: File[];
         batchSize?: number;
         batchDelay?: number;
     }) {
+        // Convert File objects to base64 for JSON transport
+        let attachmentsData: Array<{ filename: string; content: string; contentType: string }> | undefined;
+
+        if (data.attachments && data.attachments.length > 0) {
+            attachmentsData = await Promise.all(
+                data.attachments.map(async (file) => {
+                    const buffer = await file.arrayBuffer();
+                    const base64 = btoa(
+                        new Uint8Array(buffer).reduce((d, byte) => d + String.fromCharCode(byte), '')
+                    );
+                    return {
+                        filename: file.name,
+                        content: base64,
+                        contentType: file.type || 'application/octet-stream',
+                    };
+                })
+            );
+        }
+
         return this.request<{
             message: string;
             results: Array<{ email: string; status: 'sent' | 'failed'; error?: string }>;
             summary: { total: number; sent: number; failed: number };
         }>('/campaigns/send', {
             method: 'POST',
-            body: JSON.stringify(data),
+            body: JSON.stringify({
+                ...data,
+                attachments: attachmentsData,
+            }),
         });
     }
 
@@ -261,3 +284,4 @@ class ApiClient {
 
 export const apiClient = new ApiClient(API_BASE_URL);
 export default apiClient;
+

@@ -45,6 +45,11 @@ interface SendCampaignRequest {
         companyName: string;
         jobTitle?: string;
     }>;
+    attachments?: Array<{
+        filename: string;
+        content: string; // base64 encoded
+        contentType: string;
+    }>;
     batchSize?: number;
     batchDelay?: number;
 }
@@ -130,6 +135,7 @@ export class CampaignController {
                 subject,
                 body,
                 recipients,
+                attachments,
                 batchSize = 10,
                 batchDelay = 60
             } = req.body as SendCampaignRequest;
@@ -140,6 +146,14 @@ export class CampaignController {
 
             if (!subject || !body) {
                 throw new AppError('Subject and body are required', 400);
+            }
+
+            // Log received attachments
+            console.log(`[CampaignController] Received ${attachments?.length || 0} attachments`);
+            if (attachments && attachments.length > 0) {
+                attachments.forEach((att, i) => {
+                    console.log(`[CampaignController] Attachment ${i + 1}: ${att.filename}, content length: ${att.content?.length || 0}`);
+                });
             }
 
             // Get the user's email credential
@@ -181,7 +195,12 @@ export class CampaignController {
                         jobTitle: recipient.jobTitle || '',
                     });
 
-                    // Send email
+                    // Send email with attachments - use proper nodemailer format
+                    const emailAttachments = attachments?.map(att => ({
+                        filename: att.filename,
+                        content: Buffer.from(att.content, 'base64'),
+                    }));
+
                     await emailService.sendEmail(
                         { email: credential.email, appPassword: credential.appPassword },
                         {
@@ -189,6 +208,7 @@ export class CampaignController {
                             to: recipient.email,
                             subject: personalizedSubject,
                             html: personalizedBody,
+                            attachments: emailAttachments,
                         }
                     );
 

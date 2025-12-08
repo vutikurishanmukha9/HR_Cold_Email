@@ -21,9 +21,9 @@ app.use(apiSecurityHeaders);
 // Cookie parser for CSRF
 app.use(cookieParser());
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Body parsing middleware - increased limit for attachments
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Rate limiting for all API routes
 app.use('/api', apiLimiter);
@@ -49,6 +49,7 @@ app.listen(PORT, () => {
     logger.info(`🚀 Server running on port ${PORT}`);
     logger.info(`📝 Environment: ${env.NODE_ENV}`);
     logger.info(`🌐 Frontend URL: ${env.FRONTEND_URL}`);
+    logger.info(`📎 VERSION: 2.0 - Attachments Enabled`);
 });
 
 export default app;

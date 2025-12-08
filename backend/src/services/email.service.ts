@@ -8,7 +8,9 @@ interface EmailOptions {
     html: string;
     attachments?: Array<{
         filename: string;
-        path: string;
+        path?: string;
+        content?: Buffer;
+        contentType?: string;
     }>;
 }
 
@@ -51,6 +53,13 @@ export class EmailService {
 
             // Send email
             console.log('[EmailService] Sending email...');
+            console.log(`[EmailService] Attachments count: ${options.attachments?.length || 0}`);
+            if (options.attachments && options.attachments.length > 0) {
+                options.attachments.forEach((att, i) => {
+                    console.log(`[EmailService] Attachment ${i + 1}: ${att.filename}, size: ${att.content?.length || 'N/A'} bytes`);
+                });
+            }
+
             const info = await transporter.sendMail({
                 from: options.from,
                 to: options.to,
