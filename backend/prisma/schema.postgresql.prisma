@@ -1,15 +1,11 @@
-// HiHR Prisma Schema
-// Supports both PostgreSQL (production) and SQLite (development)
-// Railway will automatically set DATABASE_URL for PostgreSQL
+// Prisma schema for PostgreSQL (Production)
+// Copy this to schema.prisma before deploying to Railway
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  // Use postgresql for Railway, sqlite for local development
-  // Railway: DATABASE_URL is auto-injected when you add a PostgreSQL service
-  // Local: DATABASE_URL="file:./dev.db" in .env
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
