@@ -81,6 +81,7 @@ HiHR streamlines HR recruitment and outreach workflows by enabling professionals
 
 2. **Install frontend dependencies**
    ```bash
+   cd frontend
    npm install
    ```
 
@@ -128,6 +129,7 @@ HiHR streamlines HR recruitment and outreach workflows by enabling professionals
    
    Terminal 2 (Frontend):
    ```bash
+   cd frontend
    npm run dev
    ```
 
@@ -178,27 +180,35 @@ HiHR streamlines HR recruitment and outreach workflows by enabling professionals
 
 ```
 HR_Cold_Email/
-├── App.tsx                 # Main application component
-├── index.html              # Entry HTML
-├── index.css               # Global styles (dark theme)
-├── index.tsx               # React entry point
-├── vite.config.ts          # Vite configuration
-├── tailwind.config.js      # Tailwind CSS configuration
-├── postcss.config.js       # PostCSS configuration
-├── components/
-│   ├── CredentialsForm.tsx
-│   ├── RecipientUploader.tsx
-│   ├── EmailComposer.tsx
-│   ├── ReviewAndSend.tsx
-│   ├── StepIndicator.tsx
-│   ├── ErrorBoundary.tsx        # Error handling component
-│   └── PasswordStrengthMeter.tsx # Password strength visual feedback
-├── contexts/
-│   └── AuthContext.tsx
-├── services/
-│   └── api.ts              # API client with auth
-├── types.ts
-└── backend/
+├── README.md
+├── LICENSE
+├── .gitignore
+├── frontend/                   # React Frontend
+│   ├── App.tsx                 # Main application component
+│   ├── index.html              # Entry HTML
+│   ├── index.css               # Global styles (dark theme)
+│   ├── index.tsx               # React entry point
+│   ├── types.ts                # TypeScript types
+│   ├── vite.config.ts          # Vite configuration
+│   ├── tailwind.config.js      # Tailwind CSS configuration
+│   ├── postcss.config.js       # PostCSS configuration
+│   ├── tsconfig.json           # TypeScript configuration
+│   ├── package.json            # Frontend dependencies
+│   ├── components/
+│   │   ├── CredentialsForm.tsx
+│   │   ├── RecipientUploader.tsx
+│   │   ├── EmailComposer.tsx
+│   │   ├── ReviewAndSend.tsx
+│   │   ├── StepIndicator.tsx
+│   │   ├── ErrorBoundary.tsx
+│   │   └── PasswordStrengthMeter.tsx
+│   ├── contexts/
+│   │   └── AuthContext.tsx
+│   ├── services/
+│   │   └── api.ts
+│   └── public/
+│       └── favicon.svg
+└── backend/                    # Node.js Backend
     ├── src/
     │   ├── server.ts
     │   ├── routes/
@@ -208,6 +218,7 @@ HR_Cold_Email/
     │   └── utils/
     ├── prisma/
     │   └── schema.prisma
+    ├── package.json            # Backend dependencies
     └── docs/
         └── POSTGRESQL_MIGRATION.md
 ```
