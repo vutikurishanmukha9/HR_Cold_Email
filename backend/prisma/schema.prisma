@@ -1,16 +1,15 @@
 // HiHR Prisma Schema
 // Supports both PostgreSQL (production) and SQLite (development)
-// Railway will automatically set DATABASE_URL for PostgreSQL
+// For deployment: Change provider to "postgresql" and update DATABASE_URL
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  // Use postgresql for Railway, sqlite for local development
-  // Railway: DATABASE_URL is auto-injected when you add a PostgreSQL service
-  // Local: DATABASE_URL="file:./dev.db" in .env
-  provider = "postgresql"
+  // Development: SQLite (file:./dev.db)
+  // Production: Change to "postgresql" and set DATABASE_URL
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -100,3 +99,38 @@ model Attachment {
 
   @@map("attachments")
 }
+
+// ============= Compliance Models =============
+
+model AuditLog {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  action      String    // "email_sent", "email_failed", "credential_added", etc.
+  targetEmail String?   @map("target_email")
+  details     String?   // JSON string for additional context
+  ipAddress   String?   @map("ip_address")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============= UX Enhancement Models =============
+
+model EmailDraft {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  name        String?
+  subject     String?
+  body        String?
+  recipients  String?   // JSON string of recipients array
+  attachments String?   // JSON string of attachment metadata
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  @@index([userId])
+  @@map("email_drafts")
+}
+

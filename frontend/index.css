@@ -461,3 +461,256 @@ tr:hover {
   white-space: nowrap;
   border-width: 0;
 }
+
+/* ========================================
+   NEW: Toast Slide-in Animation
+   ======================================== */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease forwards;
+}
+
+/* ========================================
+   NEW: Confetti Animation
+   ======================================== */
+@keyframes confetti {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+.animate-confetti {
+  animation: confetti 2.5s ease-out forwards;
+}
+
+/* ========================================
+   NEW: Step Transition Animation
+   ======================================== */
+@keyframes stepSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes stepSlideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+}
+
+.step-enter {
+  animation: stepSlideIn 0.4s ease forwards;
+}
+
+.step-exit {
+  animation: stepSlideOut 0.3s ease forwards;
+}
+
+/* ========================================
+   NEW: Shimmer Animation for Skeletons
+   ======================================== */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ========================================
+   MOBILE RESPONSIVE STYLES
+   ======================================== */
+
+/* Small screens - Mobile */
+@media (max-width: 640px) {
+  html {
+    font-size: 14px;
+  }
+
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+  }
+
+  .glass-card {
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  input,
+  textarea,
+  select {
+    padding: 12px 14px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  .btn {
+    padding: 12px 20px;
+    font-size: 0.9rem;
+    width: 100%;
+  }
+
+  /* Stack stats vertically on mobile */
+  .grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+
+  /* Full-width buttons on mobile */
+  .flex-shrink-0 {
+    flex-shrink: 1;
+  }
+
+  /* Adjust step indicator */
+  .step-indicator {
+    padding: 16px;
+    gap: 6px;
+  }
+
+  .step-dot {
+    width: 10px;
+    height: 10px;
+  }
+
+  /* Mobile header adjustments */
+  .py-8 {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .px-4 {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  /* Table scroll indicator */
+  .table-container::after {
+    content: '→ Scroll';
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--gradient-primary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    opacity: 0.7;
+  }
+}
+
+/* Medium screens - Tablet */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .container {
+    padding: 0 16px;
+  }
+
+  .glass-card {
+    padding: 20px;
+  }
+}
+
+/* Large screens */
+@media (min-width: 1025px) {
+  /* Hover effects only on non-touch devices */
+  .glass-card:hover {
+    border-color: var(--accent-primary);
+    box-shadow: var(--shadow-glow);
+  }
+
+  .btn:hover {
+    transform: translateY(-2px);
+  }
+
+  tr:hover {
+    background: var(--bg-glass);
+  }
+}
+
+/* ========================================
+   Touch Device Optimizations
+   ======================================== */
+@media (hover: none) and (pointer: coarse) {
+  /* Larger touch targets */
+  .btn {
+    min-height: 48px;
+    min-width: 48px;
+  }
+
+  input,
+  textarea,
+  select {
+    min-height: 48px;
+  }
+
+  /* Remove hover effects on touch */
+  .btn:hover,
+  .glass-card:hover,
+  tr:hover {
+    transform: none;
+    border-color: var(--border-color);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+/* ========================================
+   Print Styles
+   ======================================== */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+
+  .glass-card {
+    background: white;
+    border: 1px solid #ccc;
+    box-shadow: none;
+  }
+
+  .btn {
+    display: none;
+  }
+}
