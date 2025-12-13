@@ -4,6 +4,7 @@ import { env } from './config/env';
 import { errorHandler, notFound } from './middleware/errorHandler';
 import { apiLimiter } from './middleware/rateLimit';
 import { securityHeaders, corsConfig, apiSecurityHeaders } from './middleware/security';
+import { requestIdMiddleware, requestLoggerMiddleware } from './middleware/requestLogger';
 import logger from './utils/logger';
 
 // Import routes
@@ -12,6 +13,10 @@ import credentialRoutes from './routes/credential.routes';
 import campaignRoutes from './routes/campaign.routes';
 
 const app: Application = express();
+
+// Request ID and logging (must be first)
+app.use(requestIdMiddleware);
+app.use(requestLoggerMiddleware);
 
 // Security middleware
 app.use(securityHeaders);

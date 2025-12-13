@@ -1,5 +1,6 @@
-import nodemailer from 'nodemailer';
+import nodemailer, { Transporter } from 'nodemailer';
 import { AppError } from '../middleware/errorHandler';
+import logger from '../utils/logger';
 
 interface EmailOptions {
     from: string;
@@ -19,45 +20,95 @@ interface SMTPConfig {
     appPassword: string;
 }
 
+interface CachedTransporter {
+    transporter: Transporter;
+    lastUsed: number;
+    verified: boolean;
+}
+
+/**
+ * EmailService with connection pooling for improved performance.
+ * Transporters are cached per email account and reused across requests.
+ */
 export class EmailService {
+    private transporterCache: Map<string, CachedTransporter> = new Map();
+    private readonly CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+    private readonly MAX_CONNECTIONS = 5;
+
     /**
-     * Sends an email using nodemailer with Gmail SMTP
+     * Gets or creates a pooled transporter for the given email account
+     */
+    private async getTransporter(config: SMTPConfig): Promise<Transporter> {
+        const cacheKey = config.email;
+        const cached = this.transporterCache.get(cacheKey);
+        const now = Date.now();
+
+        // Return cached transporter if valid
+        if (cached && cached.verified && (now - cached.lastUsed) < this.CACHE_TTL) {
+            cached.lastUsed = now;
+            logger.debug(`Using cached transporter for ${config.email}`);
+            return cached.transporter;
+        }
+
+        // Close old transporter if exists
+        if (cached) {
+            try {
+                cached.transporter.close();
+            } catch {
+                // Ignore close errors
+            }
+            this.transporterCache.delete(cacheKey);
+        }
+
+        logger.info(`Creating new pooled transporter for ${config.email}`);
+
+        // Create pooled transporter
+        const transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false,
+            pool: true, // Enable connection pooling
+            maxConnections: this.MAX_CONNECTIONS,
+            maxMessages: 100, // Messages per connection before reconnect
+            auth: {
+                user: config.email,
+                pass: config.appPassword,
+            },
+            // Disable verbose logging in production
+            debug: process.env.NODE_ENV === 'development',
+            logger: process.env.NODE_ENV === 'development',
+        });
+
+        // Verify connection
+        try {
+            await transporter.verify();
+            logger.info(`SMTP connection verified for ${config.email}`);
+        } catch (verifyError: any) {
+            logger.error(`SMTP verification failed for ${config.email}: ${verifyError.message}`);
+            throw new AppError(`SMTP authentication failed: ${verifyError.message}`, 401);
+        }
+
+        // Cache the transporter
+        this.transporterCache.set(cacheKey, {
+            transporter,
+            lastUsed: now,
+            verified: true,
+        });
+
+        return transporter;
+    }
+
+    /**
+     * Sends an email using a pooled connection
      */
     async sendEmail(config: SMTPConfig, options: EmailOptions): Promise<void> {
-        console.log(`[EmailService] Attempting to send email to: ${options.to}`);
-        console.log(`[EmailService] Using sender: ${config.email}`);
+        logger.info(`Sending email to: ${options.to} from: ${config.email}`);
 
         try {
-            // Create transporter
-            const transporter = nodemailer.createTransport({
-                host: 'smtp.gmail.com',
-                port: 587,
-                secure: false,
-                auth: {
-                    user: config.email,
-                    pass: config.appPassword,
-                },
-                debug: true, // Enable debug output
-                logger: true, // Log to console
-            });
+            const transporter = await this.getTransporter(config);
 
-            // Verify connection first
-            console.log('[EmailService] Verifying SMTP connection...');
-            try {
-                await transporter.verify();
-                console.log('[EmailService] SMTP connection verified successfully');
-            } catch (verifyError: any) {
-                console.error('[EmailService] SMTP verification failed:', verifyError.message);
-                throw new AppError(`SMTP authentication failed: ${verifyError.message}`, 401);
-            }
-
-            // Send email
-            console.log('[EmailService] Sending email...');
-            console.log(`[EmailService] Attachments count: ${options.attachments?.length || 0}`);
-            if (options.attachments && options.attachments.length > 0) {
-                options.attachments.forEach((att, i) => {
-                    console.log(`[EmailService] Attachment ${i + 1}: ${att.filename}, size: ${att.content?.length || 'N/A'} bytes`);
-                });
+            if (options.attachments?.length) {
+                logger.debug(`Email has ${options.attachments.length} attachment(s)`);
             }
 
             const info = await transporter.sendMail({
@@ -68,17 +119,21 @@ export class EmailService {
                 attachments: options.attachments,
             });
 
-            console.log(`[EmailService] Email sent successfully! MessageId: ${info.messageId}`);
+            logger.info(`Email sent successfully! MessageId: ${info.messageId}`);
         } catch (error: any) {
-            console.error('[EmailService] Email sending failed:');
-            console.error('[EmailService] Error name:', error.name);
-            console.error('[EmailService] Error message:', error.message);
-            console.error('[EmailService] Error code:', error.code);
-            console.error('[EmailService] Error response:', error.response);
+            logger.error(`Email sending failed: ${error.message}`, {
+                to: options.to,
+                errorCode: error.code,
+            });
+
+            // Invalidate cached transporter on auth errors
+            if (error.code === 'EAUTH') {
+                this.transporterCache.delete(config.email);
+            }
 
             // Provide user-friendly error messages
             if (error.code === 'EAUTH' || error.message?.includes('Invalid login')) {
-                throw new AppError('Gmail authentication failed. Please check your App Password is correct and has no spaces.', 401);
+                throw new AppError('Gmail authentication failed. Please check your App Password.', 401);
             } else if (error.code === 'ESOCKET' || error.code === 'ECONNECTION') {
                 throw new AppError('Unable to connect to Gmail. Please check your internet connection.', 503);
             } else if (error instanceof AppError) {
@@ -90,15 +145,68 @@ export class EmailService {
     }
 
     /**
+     * Sends multiple emails efficiently using the pooled connection
+     */
+    async sendBulkEmails(
+        config: SMTPConfig,
+        emails: EmailOptions[],
+        onProgress?: (sent: number, total: number) => void
+    ): Promise<{ sent: number; failed: number; errors: string[] }> {
+        const results = { sent: 0, failed: 0, errors: [] as string[] };
+
+        for (let i = 0; i < emails.length; i++) {
+            try {
+                await this.sendEmail(config, emails[i]);
+                results.sent++;
+            } catch (error: any) {
+                results.failed++;
+                results.errors.push(`${emails[i].to}: ${error.message}`);
+            }
+
+            if (onProgress) {
+                onProgress(i + 1, emails.length);
+            }
+        }
+
+        return results;
+    }
+
+    /**
      * Personalizes email content with recipient data
      */
     personalizeContent(template: string, data: Record<string, string>): string {
         let result = template;
         for (const [key, value] of Object.entries(data)) {
-            const placeholder = `{${key}}`;
-            result = result.replace(new RegExp(placeholder, 'g'), value || '');
+            const placeholder = new RegExp(`\\{${key}\\}`, 'gi');
+            result = result.replace(placeholder, value || '');
         }
         return result;
+    }
+
+    /**
+     * Clears all cached transporters (useful for cleanup)
+     */
+    clearCache(): void {
+        for (const [email, cached] of this.transporterCache) {
+            try {
+                cached.transporter.close();
+                logger.debug(`Closed transporter for ${email}`);
+            } catch {
+                // Ignore close errors
+            }
+        }
+        this.transporterCache.clear();
+        logger.info('Email transporter cache cleared');
+    }
+
+    /**
+     * Gets cache statistics
+     */
+    getCacheStats(): { size: number; emails: string[] } {
+        return {
+            size: this.transporterCache.size,
+            emails: Array.from(this.transporterCache.keys()),
+        };
     }
 }
 

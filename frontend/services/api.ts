@@ -1,18 +1,54 @@
+/**
+ * Enhanced API Client with retry, timeout, and request interceptors
+ */
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-interface ApiResponse<T> {
-    data?: T;
-    error?: string;
-    details?: any;
+// Configuration
+const CONFIG = {
+    timeout: 30000, // 30 seconds
+    maxRetries: 3,
+    retryDelay: 1000, // 1 second base delay
+    retryableStatuses: [408, 429, 500, 502, 503, 504],
+};
+
+// Types
+interface RequestConfig extends RequestInit {
+    timeout?: number;
+    retries?: number;
+    skipRetry?: boolean;
 }
 
+interface ApiError extends Error {
+    status?: number;
+    code?: string;
+}
+
+/**
+ * Create an AbortController with timeout
+ */
+function createTimeoutController(timeout: number): { controller: AbortController; timeoutId: NodeJS.Timeout } {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    return { controller, timeoutId };
+}
+
+/**
+ * Delay helper for retry
+ */
+function delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Enhanced API Client
+ */
 class ApiClient {
     private baseURL: string;
     private token: string | null = null;
 
     constructor(baseURL: string) {
         this.baseURL = baseURL;
-        // Load token from localStorage
         this.token = localStorage.getItem('accessToken');
     }
 
@@ -25,70 +61,121 @@ class ApiClient {
         }
     }
 
+    /**
+     * Core request method with retry and timeout support
+     */
     private async request<T>(
         endpoint: string,
-        options: RequestInit = {}
+        options: RequestConfig = {}
     ): Promise<T> {
+        const {
+            timeout = CONFIG.timeout,
+            retries = CONFIG.maxRetries,
+            skipRetry = false,
+            ...fetchOptions
+        } = options;
+
         const headers: HeadersInit = {
             'Content-Type': 'application/json',
-            ...options.headers,
+            ...fetchOptions.headers,
         };
 
         if (this.token) {
-            headers['Authorization'] = `Bearer ${this.token}`;
+            (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`;
         }
 
-        try {
-            const response = await fetch(`${this.baseURL}${endpoint}`, {
-                ...options,
-                headers,
-            });
+        let lastError: ApiError | null = null;
 
-            let data: any;
-            const contentType = response.headers.get('content-type');
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            const { controller, timeoutId } = createTimeoutController(timeout);
 
-            // Try to parse JSON response
-            if (contentType && contentType.includes('application/json')) {
-                try {
-                    data = await response.json();
-                } catch (e) {
-                    data = { error: 'Invalid JSON response from server' };
-                }
-            } else {
-                const text = await response.text();
-                data = { error: text || 'Unexpected server response' };
-            }
+            try {
+                const response = await fetch(`${this.baseURL}${endpoint}`, {
+                    ...fetchOptions,
+                    headers,
+                    signal: controller.signal,
+                });
 
-            if (!response.ok) {
-                // Extract error message from various possible formats
-                // Backend returns: { success: false, error: { message: "...", code: "...", type: "..." } }
-                let errorMessage = `Server error: ${response.status} ${response.statusText}`;
+                clearTimeout(timeoutId);
 
-                if (data?.error?.message) {
-                    // Nested error object format
-                    errorMessage = data.error.message;
-                } else if (typeof data?.error === 'string') {
-                    // Simple error string
-                    errorMessage = data.error;
-                } else if (data?.message) {
-                    // Direct message property
-                    errorMessage = data.message;
+                // Parse response
+                let data: any;
+                const contentType = response.headers.get('content-type');
+
+                if (contentType?.includes('application/json')) {
+                    try {
+                        data = await response.json();
+                    } catch {
+                        data = { error: 'Invalid JSON response from server' };
+                    }
+                } else {
+                    const text = await response.text();
+                    data = { error: text || 'Unexpected server response' };
                 }
 
-                throw new Error(errorMessage);
-            }
+                if (!response.ok) {
+                    const error: ApiError = new Error(
+                        this.extractErrorMessage(data, response)
+                    );
+                    error.status = response.status;
+                    error.code = data?.error?.code;
 
-            return data;
-        } catch (error: any) {
-            // Handle network errors and other fetch failures
-            if (error instanceof Error) {
+                    // Check if should retry
+                    if (
+                        !skipRetry &&
+                        attempt < retries &&
+                        CONFIG.retryableStatuses.includes(response.status)
+                    ) {
+                        lastError = error;
+                        await delay(CONFIG.retryDelay * Math.pow(2, attempt)); // Exponential backoff
+                        continue;
+                    }
+
+                    throw error;
+                }
+
+                return data;
+            } catch (error: any) {
+                clearTimeout(timeoutId);
+
+                if (error.name === 'AbortError') {
+                    const timeoutError: ApiError = new Error('Request timeout');
+                    timeoutError.code = 'TIMEOUT';
+
+                    if (!skipRetry && attempt < retries) {
+                        lastError = timeoutError;
+                        await delay(CONFIG.retryDelay * Math.pow(2, attempt));
+                        continue;
+                    }
+                    throw timeoutError;
+                }
+
+                // Network errors - retry
+                if (!skipRetry && attempt < retries && error.message.includes('fetch')) {
+                    lastError = error;
+                    await delay(CONFIG.retryDelay * Math.pow(2, attempt));
+                    continue;
+                }
+
                 throw error;
             }
-            throw new Error('Network error: Unable to connect to server');
         }
+
+        throw lastError || new Error('Request failed after retries');
     }
 
-    // Auth endpoints
+    /**
+     * Extract error message from various response formats
+     */
+    private extractErrorMessage(data: any, response: Response): string {
+        if (data?.error?.message) return data.error.message;
+        if (typeof data?.error === 'string') return data.error;
+        if (data?.message) return data.message;
+        return `Server error: ${response.status} ${response.statusText}`;
+    }
+
+    // ============= Auth Endpoints =============
+
     async register(email: string, password: string, fullName: string) {
         const data = await this.request<{
             user: any;
@@ -97,8 +184,10 @@ class ApiClient {
         }>('/auth/register', {
             method: 'POST',
             body: JSON.stringify({ email, password, fullName }),
+            skipRetry: true, // Don't retry auth requests
         });
         this.setToken(data.accessToken);
+        localStorage.setItem('refreshToken', data.refreshToken);
         return data;
     }
 
@@ -110,8 +199,10 @@ class ApiClient {
         }>('/auth/login', {
             method: 'POST',
             body: JSON.stringify({ email, password }),
+            skipRetry: true,
         });
         this.setToken(data.accessToken);
+        localStorage.setItem('refreshToken', data.refreshToken);
         return data;
     }
 
@@ -119,7 +210,35 @@ class ApiClient {
         return this.request<{ user: any }>('/auth/me');
     }
 
-    // Credential endpoints
+    async refreshToken() {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) {
+            throw new Error('No refresh token available');
+        }
+
+        const data = await this.request<{ accessToken: string }>('/auth/refresh', {
+            method: 'POST',
+            body: JSON.stringify({ refreshToken }),
+            skipRetry: true,
+        });
+
+        this.setToken(data.accessToken);
+        return data;
+    }
+
+    async logout() {
+        try {
+            await this.request('/auth/logout', { method: 'POST', skipRetry: true });
+        } catch {
+            // Ignore errors - still clear local token
+        } finally {
+            this.setToken(null);
+            localStorage.removeItem('refreshToken');
+        }
+    }
+
+    // ============= Credential Endpoints =============
+
     async saveCredential(email: string, appPassword: string, isDefault?: boolean) {
         return this.request<{ credential: any }>('/credentials', {
             method: 'POST',
@@ -137,7 +256,8 @@ class ApiClient {
         });
     }
 
-    // Campaign endpoints
+    // ============= Campaign Endpoints =============
+
     async createCampaign(data: {
         name: string;
         subject: string;
@@ -184,24 +304,31 @@ class ApiClient {
         const formData = new FormData();
         formData.append('file', file);
 
-        const headers: HeadersInit = {};
-        if (this.token) {
-            headers['Authorization'] = `Bearer ${this.token}`;
+        const { controller, timeoutId } = createTimeoutController(60000); // 60s for uploads
+
+        try {
+            const response = await fetch(`${this.baseURL}/campaigns/upload-recipients`, {
+                method: 'POST',
+                headers: this.token ? { Authorization: `Bearer ${this.token}` } : {},
+                body: formData,
+                signal: controller.signal,
+            });
+
+            clearTimeout(timeoutId);
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Upload failed');
+            }
+
+            return data;
+        } catch (error: any) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error('Upload timeout - file may be too large');
+            }
+            throw error;
         }
-
-        const response = await fetch(`${this.baseURL}/campaigns/upload-recipients`, {
-            method: 'POST',
-            headers,
-            body: formData,
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error || 'Upload failed');
-        }
-
-        return data;
     }
 
     /**
@@ -250,38 +377,11 @@ class ApiClient {
                 ...data,
                 attachments: attachmentsData,
             }),
+            timeout: 300000, // 5 minutes for large campaigns
+            skipRetry: true, // Don't retry campaign sends
         });
-    }
-
-    async logout() {
-        try {
-            await this.request('/auth/logout', { method: 'POST' });
-        } catch {
-            // Ignore errors - still clear local token
-        } finally {
-            this.setToken(null);
-            localStorage.removeItem('refreshToken');
-        }
-    }
-
-    async refreshToken() {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) {
-            throw new Error('No refresh token available');
-        }
-
-        const data = await this.request<{
-            accessToken: string;
-        }>('/auth/refresh', {
-            method: 'POST',
-            body: JSON.stringify({ refreshToken }),
-        });
-
-        this.setToken(data.accessToken);
-        return data;
     }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);
 export default apiClient;
-

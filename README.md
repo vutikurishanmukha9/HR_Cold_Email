@@ -65,6 +65,28 @@ HiHR streamlines HR recruitment and outreach workflows by enabling professionals
 
 ---
 
+## Architecture Highlights
+
+### Performance Optimizations
+- **Email Connection Pooling** - SMTP connections are cached and reused (5-10x faster)
+- **API Retry with Exponential Backoff** - Auto-retry on network failures (3 retries, 1s/2s/4s delays)
+- **Request Timeout** - 30s default, 5min for campaign sends
+- **Batch Email Processing** - Configurable batch size and delays
+
+### Code Organization
+- **Pages Pattern** - AuthPage and DashboardPage for clear separation
+- **Custom Hooks** - `useCampaign` extracts complex state logic
+- **Service Layer** - Business logic separated from controllers
+- **Request Logging** - Unique request IDs for tracing
+
+### API Client Features
+- Automatic retry on 5xx errors
+- Request/response timeout handling
+- Token refresh on 401 errors
+- Structured error extraction
+
+---
+
 ## Getting Started
 
 ### Prerequisites
@@ -184,17 +206,21 @@ HR_Cold_Email/
 ├── LICENSE
 ├── .gitignore
 ├── frontend/                   # React Frontend
-│   ├── App.tsx                 # Main application component
+│   ├── App.tsx                 # Main app (routing only, ~30 lines)
 │   ├── index.html              # Entry HTML
 │   ├── index.css               # Global styles (dark theme)
 │   ├── index.tsx               # React entry point
 │   ├── types.ts                # TypeScript types
 │   ├── vite.config.ts          # Vite configuration
 │   ├── tailwind.config.js      # Tailwind CSS configuration
-│   ├── postcss.config.js       # PostCSS configuration
-│   ├── tsconfig.json           # TypeScript configuration
 │   ├── package.json            # Frontend dependencies
-│   ├── components/
+│   ├── pages/                  # Page components
+│   │   ├── AuthPage.tsx        # Login/Register page
+│   │   └── DashboardPage.tsx   # Main campaign workflow
+│   ├── hooks/                  # Custom React hooks
+│   │   ├── useCampaign.ts      # Campaign state management
+│   │   └── useScript.tsx       # Script loading hook
+│   ├── components/             # Reusable UI components
 │   │   ├── CredentialsForm.tsx
 │   │   ├── RecipientUploader.tsx
 │   │   ├── EmailComposer.tsx
@@ -205,23 +231,36 @@ HR_Cold_Email/
 │   ├── contexts/
 │   │   └── AuthContext.tsx
 │   ├── services/
-│   │   └── api.ts
+│   │   └── api.ts              # Enhanced API client with retry
 │   └── public/
 │       └── favicon.svg
 └── backend/                    # Node.js Backend
     ├── src/
-    │   ├── server.ts
-    │   ├── routes/
-    │   ├── controllers/
-    │   ├── middleware/
-    │   ├── services/
+    │   ├── server.ts           # Express app setup
+    │   ├── routes/             # API route definitions
+    │   ├── controllers/        # Request handlers
+    │   ├── middleware/         # Auth, validation, logging, etc.
+    │   │   ├── auth.ts         # JWT authentication
+    │   │   ├── rateLimit.ts    # Rate limiting
+    │   │   ├── security.ts     # CORS, Helmet headers
+    │   │   ├── validation.ts   # Zod schema validation
+    │   │   ├── errorHandler.ts # Global error handling
+    │   │   └── requestLogger.ts # Request ID & logging
+    │   ├── services/           # Business logic
+    │   │   ├── auth.service.ts # Account lockout, login
+    │   │   ├── email.service.ts # Connection pooling
+    │   │   ├── campaign.service.ts
+    │   │   └── credential.service.ts
     │   └── utils/
+    │       ├── logger.ts       # Winston structured logging
+    │       ├── encryption.ts   # AES-256 encryption
+    │       ├── jwt.ts          # Token management
+    │       └── validation.ts   # Zod schemas
     ├── prisma/
     │   └── schema.prisma
-    ├── package.json            # Backend dependencies
-    └── docs/
-        └── POSTGRESQL_MIGRATION.md
+    └── package.json            # Backend dependencies
 ```
+
 
 ---
 
