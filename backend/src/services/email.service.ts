@@ -1,6 +1,7 @@
 import nodemailer, { Transporter } from 'nodemailer';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../utils/logger';
+import trackingService from './tracking.service';
 
 interface EmailOptions {
     from: string;
@@ -181,6 +182,54 @@ export class EmailService {
             result = result.replace(placeholder, value || '');
         }
         return result;
+    }
+
+    /**
+     * Prepares an email with tracking (pixel + link rewriting)
+     * Call this before sending to enable open and click tracking
+     */
+    async prepareTrackedEmail(options: {
+        recipientEmail: string;
+        subject: string;
+        html: string;
+        campaignId?: string;
+    }): Promise<{ html: string; trackingToken: string }> {
+        try {
+            // Create tracking record
+            const { trackingToken } = await trackingService.createTrackingRecord({
+                recipientEmail: options.recipientEmail,
+                subject: options.subject,
+                campaignId: options.campaignId,
+            });
+
+            // Rewrite links for click tracking
+            const { body: bodyWithTrackedLinks } = trackingService.rewriteLinksForTracking(
+                options.html,
+                trackingToken
+            );
+
+            // Generate and append tracking pixel
+            const trackingPixel = trackingService.generateTrackingPixelHtml(trackingToken);
+
+            // Inject pixel before closing body tag, or at the end
+            let trackedHtml = bodyWithTrackedLinks;
+            if (trackedHtml.includes('</body>')) {
+                trackedHtml = trackedHtml.replace('</body>', `${trackingPixel}</body>`);
+            } else {
+                trackedHtml = trackedHtml + trackingPixel;
+            }
+
+            logger.debug('Email prepared with tracking', {
+                recipientEmail: options.recipientEmail,
+                trackingToken
+            });
+
+            return { html: trackedHtml, trackingToken };
+        } catch (error: any) {
+            // If tracking fails, still return original HTML
+            logger.error('Failed to prepare tracked email', { error: error.message });
+            return { html: options.html, trackingToken: '' };
+        }
     }
 
     /**

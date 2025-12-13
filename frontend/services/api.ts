@@ -381,6 +381,19 @@ class ApiClient {
             skipRetry: true, // Don't retry campaign sends
         });
     }
+
+    // ============= Generic HTTP Methods =============
+
+    async get<T>(endpoint: string): Promise<T> {
+        return this.request<T>(endpoint, { method: 'GET' });
+    }
+
+    async post<T>(endpoint: string, data?: any): Promise<T> {
+        return this.request<T>(endpoint, {
+            method: 'POST',
+            body: data ? JSON.stringify(data) : undefined,
+        });
+    }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);

@@ -48,6 +48,14 @@ HiHR streamlines HR recruitment and outreach workflows by enabling professionals
 - **Step Animations** - Smooth transitions between workflow steps
 - **Mobile Responsive** - Optimized for all device sizes
 
+### Email Tracking
+- **Open Tracking** - Invisible 1x1 pixel embedded in emails to track opens
+- **Click Tracking** - Links rewritten to track clicks and redirect to original URL
+- **Open Rate Analytics** - View percentage of recipients who opened emails
+- **Click Analytics** - Track which links were clicked and how many times
+- **Tracking Dashboard** - Frontend component to visualize tracking stats
+- **Per-Recipient Details** - See exactly who opened and when
+
 ---
 
 ## Technology Stack

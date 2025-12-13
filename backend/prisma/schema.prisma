@@ -134,3 +134,45 @@ model EmailDraft {
   @@map("email_drafts")
 }
 
+// ============= Email Tracking Models =============
+
+model EmailTracking {
+  id            String    @id @default(uuid())
+  campaignId    String?   @map("campaign_id")
+  recipientId   String?   @map("recipient_id")
+  recipientEmail String   @map("recipient_email")
+  subject       String?
+  trackingToken String    @unique @map("tracking_token")
+  openCount     Int       @default(0) @map("open_count")
+  firstOpenedAt DateTime? @map("first_opened_at")
+  lastOpenedAt  DateTime? @map("last_opened_at")
+  userAgent     String?   @map("user_agent")
+  ipAddress     String?   @map("ip_address")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  linkClicks    LinkClick[]
+  
+  @@index([campaignId])
+  @@index([trackingToken])
+  @@index([recipientEmail])
+  @@map("email_tracking")
+}
+
+model LinkClick {
+  id              String    @id @default(uuid())
+  emailTrackingId String    @map("email_tracking_id")
+  originalUrl     String    @map("original_url")
+  clickToken      String    @unique @map("click_token")
+  clickCount      Int       @default(0) @map("click_count")
+  firstClickedAt  DateTime? @map("first_clicked_at")
+  lastClickedAt   DateTime? @map("last_clicked_at")
+  userAgent       String?   @map("user_agent")
+  ipAddress       String?   @map("ip_address")
+  
+  emailTracking   EmailTracking @relation(fields: [emailTrackingId], references: [id], onDelete: Cascade)
+  
+  @@index([emailTrackingId])
+  @@index([clickToken])
+  @@map("link_clicks")
+}
+

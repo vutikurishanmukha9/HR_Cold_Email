@@ -195,6 +195,13 @@ export class CampaignController {
                         jobTitle: recipient.jobTitle || '',
                     });
 
+                    // Prepare email with tracking (pixel + link rewriting)
+                    const { html: trackedBody } = await emailService.prepareTrackedEmail({
+                        recipientEmail: recipient.email,
+                        subject: personalizedSubject,
+                        html: personalizedBody,
+                    });
+
                     // Send email with attachments - use proper nodemailer format
                     const emailAttachments = attachments?.map(att => ({
                         filename: att.filename,
@@ -207,7 +214,7 @@ export class CampaignController {
                             from: credential.email,
                             to: recipient.email,
                             subject: personalizedSubject,
-                            html: personalizedBody,
+                            html: trackedBody,
                             attachments: emailAttachments,
                         }
                     );

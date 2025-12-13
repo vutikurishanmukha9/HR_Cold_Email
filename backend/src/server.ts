@@ -11,6 +11,7 @@ import logger from './utils/logger';
 import authRoutes from './routes/auth.routes';
 import credentialRoutes from './routes/credential.routes';
 import campaignRoutes from './routes/campaign.routes';
+import trackingRoutes from './routes/tracking.routes';
 
 const app: Application = express();
 
@@ -30,7 +31,7 @@ app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Rate limiting for all API routes
+// Rate limiting for all API routes (except tracking pixel)
 app.use('/api', apiLimiter);
 
 // Health check (no rate limit)
@@ -42,6 +43,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/credentials', credentialRoutes);
 app.use('/api/campaigns', campaignRoutes);
+app.use('/api/track', trackingRoutes);
 
 // Error handling
 app.use(notFound);
