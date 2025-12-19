@@ -1,16 +1,15 @@
 // HiHR Prisma Schema
-// Supports both PostgreSQL (production) and SQLite (development)
-// Development: DATABASE_URL="file:./dev.db"
-// Production: DATABASE_URL="postgresql://user:pass@host:5432/db"
+// PostgreSQL for production deployment
+// For local development: Change to "sqlite" and use DATABASE_URL="file:./dev.db"
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  // For deployment: Change to "postgresql" before deploying
-  // For local dev: Keep as "sqlite" with DATABASE_URL="file:./dev.db"
-  provider = "sqlite"
+  // Production: PostgreSQL (Render/Railway will inject DATABASE_URL)
+  // Local dev: Change to "sqlite" and use DATABASE_URL="file:./dev.db"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
