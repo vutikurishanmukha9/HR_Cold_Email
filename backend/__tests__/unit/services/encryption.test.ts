@@ -4,14 +4,14 @@
  */
 
 // Mock the env module
-jest.mock('../../src/config/env', () => ({
+jest.mock('../../../src/config/env', () => ({
     env: {
-        ENCRYPTION_KEY: 'test-encryption-key-32-characters',
+        ENCRYPTION_KEY: '12345678901234567890123456789012', // Exactly 32 chars
         NODE_ENV: 'test',
     }
 }));
 
-import { encrypt, decrypt } from '../../src/utils/encryption';
+import { encrypt, decrypt } from '../../../src/utils/encryption';
 
 describe('Encryption Utilities', () => {
     describe('encrypt', () => {
