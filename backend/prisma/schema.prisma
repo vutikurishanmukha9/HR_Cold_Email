@@ -7,9 +7,9 @@ generator client {
 }
 
 datasource db {
-  // Production: PostgreSQL (Render/Railway will inject DATABASE_URL)
-  // Local dev: Change to "sqlite" and use DATABASE_URL="file:./dev.db"
-  provider = "postgresql"
+  // Production: Change to "postgresql"
+  // Local dev: SQLite with DATABASE_URL="file:./dev.db"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
