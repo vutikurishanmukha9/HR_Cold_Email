@@ -15,6 +15,9 @@ import trackingRoutes from './routes/tracking.routes';
 
 const app: Application = express();
 
+// Trust proxy for Render/Railway/Heroku (required for rate limiter + correct IP)
+app.set('trust proxy', 1);
+
 // Request ID and logging (must be first)
 app.use(requestIdMiddleware);
 app.use(requestLoggerMiddleware);
