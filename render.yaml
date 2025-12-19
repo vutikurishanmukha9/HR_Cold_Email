@@ -11,7 +11,7 @@ services:
     plan: free # or starter, standard, pro
     rootDir: backend
     buildCommand: npm install && npx prisma generate && npm run build
-    startCommand: npx prisma migrate deploy && npm run start
+    startCommand: npx prisma db push && npm run start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
