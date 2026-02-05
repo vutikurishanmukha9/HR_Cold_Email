@@ -21,6 +21,35 @@ const EmailComposer: React.FC<EmailComposerProps> = ({ initialTemplate, onCompos
     const [showPlaceholder, setShowPlaceholder] = useState(false);
     const [isDraggingAttachment, setIsDraggingAttachment] = useState(false);
     const [attachmentError, setAttachmentError] = useState<string | null>(null);
+    const [copiedTag, setCopiedTag] = useState<string | null>(null);
+
+    // Robust clipboard copy with fallback
+    const copyToClipboard = async (text: string) => {
+        try {
+            // Modern API (requires HTTPS or localhost)
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                // Fallback for older browsers or non-secure contexts
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+            // Show feedback
+            setCopiedTag(text);
+            setTimeout(() => setCopiedTag(null), 1500);
+        } catch (err) {
+            console.error('Copy failed:', err);
+            alert('Copy failed. Please manually select and copy: ' + text);
+        }
+    };
 
     useEffect(() => {
         if (editorRef.current && body !== editorRef.current.innerHTML) {
@@ -249,11 +278,23 @@ const EmailComposer: React.FC<EmailComposerProps> = ({ initialTemplate, onCompos
                             {personalizationTags.map(tag => (
                                 <button
                                     key={tag}
-                                    onClick={() => navigator.clipboard.writeText(tag)}
-                                    className="w-full text-left px-4 py-3 text-sm rounded-lg transition-all duration-300 hover:scale-105"
-                                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#a78bfa' }}
+                                    onClick={() => copyToClipboard(tag)}
+                                    className="w-full text-left px-4 py-3 text-sm rounded-lg transition-all duration-300 hover:scale-105 flex items-center justify-between"
+                                    style={{
+                                        background: copiedTag === tag ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.05)',
+                                        border: copiedTag === tag ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid rgba(255,255,255,0.1)',
+                                        color: copiedTag === tag ? '#10b981' : '#a78bfa'
+                                    }}
                                 >
-                                    {tag}
+                                    <span>{tag}</span>
+                                    {copiedTag === tag && (
+                                        <span className="text-xs text-emerald-400 flex items-center gap-1">
+                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                            Copied!
+                                        </span>
+                                    )}
                                 </button>
                             ))}
                         </div>
