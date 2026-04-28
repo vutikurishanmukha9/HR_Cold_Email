@@ -1,7 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Credentials, Recipient, EmailTemplate, EmailStatus, SendProgressState } from '../types';
 import apiClient from '../services/api';
+import { io, Socket } from 'socket.io-client';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 /**
  * Hook for managing campaign workflow state
  * Extracts complex state logic from App component
@@ -22,7 +24,23 @@ export function useCampaign() {
     const [isCampaignFinished, setIsCampaignFinished] = useState(false);
     const [scheduledTime, setScheduledTime] = useState<Date | null>(null);
 
+    // WebSocket & Polling refs
+    const socketRef = useRef<Socket | null>(null);
+    const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
     const totalSteps = 4;
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (socketRef.current) {
+                socketRef.current.disconnect();
+            }
+            if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+            }
+        };
+    }, []);
 
     // Handle saving credentials
     const handleCredentialsSave = useCallback(async (creds: Credentials) => {
@@ -79,7 +97,6 @@ export function useCampaign() {
     }) => {
         if (!credentials) return;
 
-        // Handle scheduling
         if (config.time) {
             setScheduledTime(config.time);
             return;
@@ -87,7 +104,6 @@ export function useCampaign() {
 
         setIsSending(true);
 
-        // Initialize progress for all recipients
         const initialProgress: Record<string, SendProgressState> = {};
         config.recipientsToSend.forEach(r => {
             initialProgress[r.email] = { status: EmailStatus.Queued };
@@ -95,15 +111,7 @@ export function useCampaign() {
         setSendProgress(initialProgress);
 
         try {
-            // Mark all as sending
-            config.recipientsToSend.forEach(r => {
-                setSendProgress(prev => ({
-                    ...prev,
-                    [r.email]: { status: EmailStatus.Sending }
-                }));
-            });
-
-            // Call backend API
+            // 1. Call Backend (Fire and Forget)
             const result = await apiClient.sendCampaign({
                 credentialEmail: credentials.email,
                 subject: emailTemplate.subject,
@@ -114,76 +122,113 @@ export function useCampaign() {
                 batchDelay: config.batchDelay,
             });
 
-            // Update progress based on results
-            result.results.forEach(r => {
+            if (!result.campaignRunId) {
+                // If it returned no runId, it means all were invalid and it finished immediately
+                const finalProgress: Record<string, SendProgressState> = {};
+                config.recipientsToSend.forEach(r => {
+                    finalProgress[r.email] = { status: EmailStatus.Failed, error: 'Invalid email' };
+                });
+                setSendProgress(finalProgress);
+                setIsSending(false);
+                setIsCampaignFinished(true);
+                return { success: false, error: 'All emails were invalid', errorType: 'validation' };
+            }
+
+            const runId = result.campaignRunId;
+
+            // 2. Setup WebSocket
+            socketRef.current = io(API_BASE_URL, { transports: ['websocket', 'polling'] });
+            
+            socketRef.current.on('connect', () => {
+                console.log('WebSocket connected, joining campaign run:', runId);
+                socketRef.current?.emit('join:campaign', runId);
+                
+                // Clear any polling since WS is active
+                if (pollIntervalRef.current) {
+                    clearInterval(pollIntervalRef.current);
+                    pollIntervalRef.current = null;
+                }
+            });
+
+            socketRef.current.on('email:status', (data: { email: string; status: string; error?: string }) => {
                 setSendProgress(prev => ({
                     ...prev,
-                    [r.email]: {
-                        status: r.status === 'sent' ? EmailStatus.Sent : EmailStatus.Failed,
-                        error: r.error,
+                    [data.email]: {
+                        status: data.status as EmailStatus,
+                        error: data.error,
                     }
                 }));
             });
 
-            setIsCampaignFinished(true);
+            socketRef.current.on('campaign:completed', () => {
+                console.log('Campaign completed via WebSocket');
+                finishCampaign();
+            });
 
-            // Return summary for toast notifications
-            const sentCount = result.results.filter(r => r.status === 'sent').length;
-            const failedCount = result.results.filter(r => r.status === 'failed').length;
-            const failedDetails = result.results
-                .filter(r => r.status === 'failed')
-                .map(r => ({ email: r.email, error: r.error || 'Unknown error' }));
+            // 3. Fallback Polling Setup
+            // If WebSocket disconnects or fails, polling takes over
+            socketRef.current.on('disconnect', () => {
+                console.log('WebSocket disconnected, falling back to polling...');
+                startPolling(runId);
+            });
 
-            return {
-                success: true,
-                sent: sentCount,
-                failed: failedCount,
-                failedDetails,
+            // Always start polling initially just in case WS fails to connect at all
+            startPolling(runId);
+
+            // Finish logic
+            const finishCampaign = () => {
+                if (socketRef.current) socketRef.current.disconnect();
+                if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                setIsSending(false);
+                setIsCampaignFinished(true);
             };
+
+            // Setup polling function
+            function startPolling(campaignRunId: string) {
+                if (pollIntervalRef.current) return; // Already polling
+                
+                pollIntervalRef.current = setInterval(async () => {
+                    try {
+                        const status = await apiClient.getCampaignRunStatus(campaignRunId);
+                        
+                        // Update progress from polling data
+                        setSendProgress(prev => {
+                            const newProgress = { ...prev };
+                            Object.entries(status.recipients).forEach(([email, data]) => {
+                                newProgress[email] = {
+                                    status: data.status as EmailStatus,
+                                    error: data.error,
+                                };
+                            });
+                            return newProgress;
+                        });
+
+                        if (status.status === 'completed') {
+                            console.log('Campaign completed via Polling');
+                            finishCampaign();
+                        }
+                    } catch (err) {
+                        console.error('Polling error:', err);
+                        // If 404, it might have expired or completed a while ago
+                    }
+                }, 2000); // Poll every 2 seconds
+            }
+
+            return { success: true };
+
         } catch (error: any) {
-            console.error('Campaign send error:', error);
-
-            // Parse error message for user-friendly display
-            let errorMessage = 'Campaign failed';
-            let errorType: 'credential' | 'validation' | 'network' | 'unknown' = 'unknown';
-
-            if (error instanceof Error) {
-                errorMessage = error.message;
-            } else if (typeof error === 'string') {
-                errorMessage = error;
-            } else if (error && typeof error === 'object') {
-                errorMessage = error.message || error.error || JSON.stringify(error);
-            }
-
-            // Categorize the error
-            const msg = errorMessage.toLowerCase();
-            if (msg.includes('credential') || msg.includes('not found in your saved') || msg.includes('app password') || msg.includes('authentication')) {
-                errorType = 'credential';
-            } else if (msg.includes('invalid email') || msg.includes('no recipients') || msg.includes('subject and body')) {
-                errorType = 'validation';
-            } else if (msg.includes('network') || msg.includes('fetch') || msg.includes('connect') || msg.includes('timeout')) {
-                errorType = 'network';
-            }
-
-            // Mark all as failed
-            config.recipientsToSend.forEach(r => {
-                setSendProgress(prev => ({
-                    ...prev,
-                    [r.email]: {
-                        status: EmailStatus.Failed,
-                        error: errorMessage
-                    }
-                }));
-            });
-            setIsCampaignFinished(true);
-
-            return {
-                success: false,
-                error: errorMessage,
-                errorType,
-            };
-        } finally {
+            console.error('Campaign start error:', error);
+            
+            // Revert to initial state
+            setSendProgress(initialProgress);
             setIsSending(false);
+            
+            let errorMessage = 'Campaign failed to start';
+            if (error instanceof Error) errorMessage = error.message;
+            else if (typeof error === 'string') errorMessage = error;
+            else if (error && error.message) errorMessage = error.message;
+
+            return { success: false, error: errorMessage, errorType: 'network' };
         }
     }, [credentials, emailTemplate]);
 

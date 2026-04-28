@@ -8,6 +8,8 @@ import { AppError, ApiError, ErrorCode } from '../middleware/errorHandler';
 import multer from 'multer';
 import path from 'path';
 import { env } from '../config/env';
+import campaignRunManager from '../services/campaignRun.manager';
+import { io } from '../server';
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -126,7 +128,8 @@ export class CampaignController {
 
     /**
      * Send campaign emails using backend Nodemailer
-     * This is the secure method - no credentials exposed to client
+     * Fire-and-forget: returns immediately with a runId,
+     * then sends emails in background emitting WebSocket events.
      */
     async sendCampaign(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
         try {
@@ -153,21 +156,11 @@ export class CampaignController {
             const invalidEmails = recipients.filter(r => !emailRegex.test(r.email));
             const validRecipients = recipients.filter(r => emailRegex.test(r.email));
 
-            // Pre-populate results for invalid emails (mark as failed immediately)
-            const results: Array<{ email: string; status: 'sent' | 'failed'; error?: string }> = [];
-            invalidEmails.forEach(r => {
-                results.push({
-                    email: r.email,
-                    status: 'failed',
-                    error: `Invalid email format: "${r.email}". Skipped.`,
-                });
-            });
-
-            // If ALL emails are invalid, return early with results
+            // If ALL emails are invalid, return early
             if (validRecipients.length === 0) {
                 res.json({
                     message: `Campaign complete: 0 sent, ${invalidEmails.length} failed (all emails were invalid)`,
-                    results,
+                    campaignRunId: null,
                     summary: { total: recipients.length, sent: 0, failed: invalidEmails.length },
                 });
                 return;
@@ -175,11 +168,6 @@ export class CampaignController {
 
             // Log received attachments
             console.log(`[CampaignController] Received ${attachments?.length || 0} attachments`);
-            if (attachments && attachments.length > 0) {
-                attachments.forEach((att, i) => {
-                    console.log(`[CampaignController] Attachment ${i + 1}: ${att.filename}, content length: ${att.content?.length || 0}`);
-                });
-            }
 
             // Get the user's email credential
             const credentials = await credentialService.getCredentials(req.user!.id);
@@ -213,90 +201,160 @@ export class CampaignController {
                 credential = await credentialService.getCredentialById(req.user!.id, defaultCred.id);
             }
 
-            // Send emails in batches (only to valid recipients)
-            for (let i = 0; i < validRecipients.length; i++) {
-                const recipient = validRecipients[i];
+            // Create a campaign run for tracking progress
+            const allEmails = recipients.map(r => r.email);
+            const run = campaignRunManager.createRun(req.user!.id, allEmails);
+            const runId = run.id;
 
-                try {
-                    // Personalize subject and body
-                    const personalizedSubject = emailService.personalizeContent(subject, {
-                        fullName: recipient.fullName,
-                        companyName: recipient.companyName,
-                        jobTitle: recipient.jobTitle || '',
+            // Mark invalid emails as failed immediately
+            invalidEmails.forEach(r => {
+                campaignRunManager.updateRecipient(runId, r.email, 'failed', `Invalid email format: "${r.email}". Skipped.`);
+                // Emit to WebSocket room
+                io.to(`campaign:${runId}`).emit('email:status', {
+                    email: r.email,
+                    status: 'failed',
+                    error: `Invalid email format: "${r.email}". Skipped.`,
+                });
+            });
+
+            // Respond immediately with the run ID
+            res.json({
+                message: 'Campaign started',
+                campaignRunId: runId,
+                summary: { total: recipients.length, validCount: validRecipients.length, invalidCount: invalidEmails.length },
+            });
+
+            // ====== BACKGROUND: Send emails asynchronously ======
+            // This runs AFTER the response has been sent to the client
+            setImmediate(async () => {
+                const credentialData = { email: credential.email, appPassword: credential.appPassword };
+
+                for (let i = 0; i < validRecipients.length; i++) {
+                    const recipient = validRecipients[i];
+
+                    // Mark as sending
+                    campaignRunManager.updateRecipient(runId, recipient.email, 'sending');
+                    io.to(`campaign:${runId}`).emit('email:status', {
+                        email: recipient.email,
+                        status: 'sending',
                     });
 
-                    const personalizedBody = emailService.personalizeContent(body, {
-                        fullName: recipient.fullName,
-                        companyName: recipient.companyName,
-                        jobTitle: recipient.jobTitle || '',
-                    });
+                    try {
+                        // Personalize subject and body
+                        const personalizedSubject = emailService.personalizeContent(subject, {
+                            fullName: recipient.fullName,
+                            companyName: recipient.companyName,
+                            jobTitle: recipient.jobTitle || '',
+                        });
 
-                    // Prepare email with tracking (pixel + link rewriting)
-                    const { html: trackedBody } = await emailService.prepareTrackedEmail({
-                        recipientEmail: recipient.email,
-                        subject: personalizedSubject,
-                        html: personalizedBody,
-                    });
+                        const personalizedBody = emailService.personalizeContent(body, {
+                            fullName: recipient.fullName,
+                            companyName: recipient.companyName,
+                            jobTitle: recipient.jobTitle || '',
+                        });
 
-                    // Send email with attachments - use proper nodemailer format
-                    const emailAttachments = attachments?.map(att => ({
-                        filename: att.filename,
-                        content: Buffer.from(att.content, 'base64'),
-                    }));
-
-                    await emailService.sendEmail(
-                        { email: credential.email, appPassword: credential.appPassword },
-                        {
-                            from: credential.email,
-                            to: recipient.email,
+                        // Prepare email with tracking (pixel + link rewriting)
+                        const { html: trackedBody } = await emailService.prepareTrackedEmail({
+                            recipientEmail: recipient.email,
                             subject: personalizedSubject,
-                            html: trackedBody,
-                            attachments: emailAttachments,
+                            html: personalizedBody,
+                        });
+
+                        // Send email with attachments
+                        const emailAttachments = attachments?.map(att => ({
+                            filename: att.filename,
+                            content: Buffer.from(att.content, 'base64'),
+                        }));
+
+                        await emailService.sendEmail(
+                            credentialData,
+                            {
+                                from: credential.email,
+                                to: recipient.email,
+                                subject: personalizedSubject,
+                                html: trackedBody,
+                                attachments: emailAttachments,
+                            }
+                        );
+
+                        // Mark as sent
+                        campaignRunManager.updateRecipient(runId, recipient.email, 'sent');
+                        io.to(`campaign:${runId}`).emit('email:status', {
+                            email: recipient.email,
+                            status: 'sent',
+                        });
+                    } catch (error: any) {
+                        console.error(`Failed to send to ${recipient.email}:`, error.message);
+
+                        // User-friendly error messages
+                        let friendlyError = error.message || 'Unknown error';
+                        if (error.message?.includes('Invalid login') || error.message?.includes('authentication failed')) {
+                            friendlyError = 'Gmail authentication failed. Please check your App Password in Step 1.';
+                        } else if (error.message?.includes('Recipient address rejected') || error.message?.includes('550')) {
+                            friendlyError = `Recipient email "${recipient.email}" does not exist or was rejected by the mail server.`;
+                        } else if (error.message?.includes('timeout') || error.message?.includes('ETIMEDOUT')) {
+                            friendlyError = 'Connection timed out. Gmail may be temporarily unavailable.';
+                        } else if (error.message?.includes('ECONNREFUSED') || error.message?.includes('ESOCKET')) {
+                            friendlyError = 'Could not connect to Gmail servers. Please check your internet connection.';
+                        } else if (error.message?.includes('Rate limit') || error.message?.includes('too many')) {
+                            friendlyError = 'Gmail rate limit reached. Please wait a few minutes and try again with fewer recipients.';
                         }
-                    );
 
-                    results.push({ email: recipient.email, status: 'sent' });
-                } catch (error: any) {
-                    console.error(`Failed to send to ${recipient.email}:`, error.message);
-
-                    // Provide user-friendly error messages per recipient
-                    let friendlyError = error.message || 'Unknown error';
-                    if (error.message?.includes('Invalid login') || error.message?.includes('authentication failed')) {
-                        friendlyError = 'Gmail authentication failed. Please check your App Password in Step 1.';
-                    } else if (error.message?.includes('Recipient address rejected') || error.message?.includes('550')) {
-                        friendlyError = `Recipient email "${recipient.email}" does not exist or was rejected by the mail server.`;
-                    } else if (error.message?.includes('timeout') || error.message?.includes('ETIMEDOUT')) {
-                        friendlyError = 'Connection timed out. Gmail may be temporarily unavailable. Please try again.';
-                    } else if (error.message?.includes('ECONNREFUSED') || error.message?.includes('ESOCKET')) {
-                        friendlyError = 'Could not connect to Gmail servers. Please check your internet connection.';
-                    } else if (error.message?.includes('Rate limit') || error.message?.includes('too many')) {
-                        friendlyError = 'Gmail rate limit reached. Please wait a few minutes and try again with fewer recipients.';
+                        // Mark as failed
+                        campaignRunManager.updateRecipient(runId, recipient.email, 'failed', friendlyError);
+                        io.to(`campaign:${runId}`).emit('email:status', {
+                            email: recipient.email,
+                            status: 'failed',
+                            error: friendlyError,
+                        });
                     }
 
-                    results.push({
-                        email: recipient.email,
-                        status: 'failed',
-                        error: friendlyError
-                    });
+                    // Batch delay - wait between batches
+                    if ((i + 1) % batchSize === 0 && i < validRecipients.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, batchDelay * 1000));
+                    } else if (i < validRecipients.length - 1) {
+                        // Small delay between individual emails (300ms)
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                    }
                 }
 
-                // Batch delay - wait between batches
-                if ((i + 1) % batchSize === 0 && i < validRecipients.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, batchDelay * 1000));
-                } else if (i < validRecipients.length - 1) {
-                    // Small delay between individual emails (300ms)
-                    await new Promise(resolve => setTimeout(resolve, 300));
-                }
+                // Emit completion
+                const finalRun = campaignRunManager.getRun(runId);
+                io.to(`campaign:${runId}`).emit('campaign:completed', {
+                    runId,
+                    sentCount: finalRun?.sentCount || 0,
+                    failedCount: finalRun?.failedCount || 0,
+                    totalCount: finalRun?.totalCount || 0,
+                });
+
+                console.log(`[CampaignController] Campaign run ${runId} completed: ${finalRun?.sentCount} sent, ${finalRun?.failedCount} failed`);
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/campaigns/run/:runId/status
+     * Polling fallback for campaign run progress
+     */
+    async getCampaignRunStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const { runId } = req.params;
+            const status = campaignRunManager.getRunStatus(runId);
+
+            if (!status) {
+                throw ApiError.notFound('Campaign run not found or expired.');
             }
 
-            const sentCount = results.filter(r => r.status === 'sent').length;
-            const failedCount = results.filter(r => r.status === 'failed').length;
+            // Verify the run belongs to this user
+            const run = campaignRunManager.getRun(runId);
+            if (run && run.userId !== req.user!.id) {
+                throw ApiError.notFound('Campaign run not found.');
+            }
 
-            res.json({
-                message: `Campaign sent: ${sentCount} succeeded, ${failedCount} failed`,
-                results,
-                summary: { total: recipients.length, sent: sentCount, failed: failedCount }
-            });
+            res.json({ ...status });
         } catch (error) {
             next(error);
         }

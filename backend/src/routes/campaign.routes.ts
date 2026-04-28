@@ -12,6 +12,10 @@ router.use(authenticate);
 
 router.post('/', validate(createCampaignSchema), campaignController.createCampaign);
 router.get('/', validateQuery(paginationSchema), campaignController.getCampaigns);
+
+// Campaign run progress polling (must be before /:id)
+router.get('/run/:runId/status', campaignController.getCampaignRunStatus);
+
 router.get('/:id', campaignController.getCampaignById);
 router.patch('/:id', validate(updateCampaignSchema), campaignController.updateCampaign);
 router.delete('/:id', campaignController.deleteCampaign);

@@ -369,16 +369,40 @@ class ApiClient {
 
         return this.request<{
             message: string;
-            results: Array<{ email: string; status: 'sent' | 'failed'; error?: string }>;
-            summary: { total: number; sent: number; failed: number };
+            campaignRunId: string | null;
+            summary: { total: number; validCount: number; invalidCount: number };
         }>('/campaigns/send', {
             method: 'POST',
             body: JSON.stringify({
                 ...data,
                 attachments: attachmentsData,
             }),
-            timeout: 300000, // 5 minutes for large campaigns
-            skipRetry: true, // Don't retry campaign sends
+            timeout: 30000, // Reduced to 30s since it returns instantly now
+            skipRetry: true, // Don't retry campaign starts
+        });
+    }
+
+    /**
+     * Poll campaign run status
+     */
+    async getCampaignRunStatus(runId: string) {
+        return this.request<{
+            id: string;
+            status: 'running' | 'completed';
+            totalCount: number;
+            sentCount: number;
+            failedCount: number;
+            recipients: Record<string, {
+                email: string;
+                status: 'queued' | 'sending' | 'sent' | 'failed';
+                error?: string;
+                sentAt?: string;
+            }>;
+            startedAt: string;
+            completedAt?: string;
+        }>(`/campaigns/run/${runId}/status`, {
+            method: 'GET',
+            skipRetry: true, // Don't retry polls to avoid pileups
         });
     }
 
