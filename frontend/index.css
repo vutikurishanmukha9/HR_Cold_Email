@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* ========================================
    HiHR — Warm Slate + Luminous Accents
    Design System v2.0
