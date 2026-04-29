@@ -31,13 +31,14 @@ const EmailPreview: React.FC<EmailPreviewProps> = ({
         jobTitle: 'HR Manager',
     };
 
-    // Replace placeholders with actual values
+    // Replace placeholders with actual values dynamically
     const personalizeContent = (content: string): string => {
-        return content
-            .replace(/{fullName}/gi, selectedRecipient.fullName)
-            .replace(/{companyName}/gi, selectedRecipient.companyName)
-            .replace(/{jobTitle}/gi, selectedRecipient.jobTitle || '')
-            .replace(/{email}/gi, selectedRecipient.email);
+        let personalized = content;
+        Object.entries(selectedRecipient).forEach(([key, value]) => {
+            const regex = new RegExp(`{${key}}`, 'gi');
+            personalized = personalized.replace(regex, String(value || ''));
+        });
+        return personalized;
     };
 
     const personalizedSubject = personalizeContent(emailTemplate.subject);
@@ -70,11 +71,14 @@ const EmailPreview: React.FC<EmailPreviewProps> = ({
                             onChange={(e) => setSelectedRecipientIndex(Number(e.target.value))}
                             className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white"
                         >
-                            {recipients.map((r, i) => (
-                                <option key={i} value={i} className="bg-gray-800">
-                                    {r.fullName} ({r.email})
-                                </option>
-                            ))}
+                            {recipients.map((r, i) => {
+                                const displayName = r.fullName || r.firstName || r.name || r.email;
+                                return (
+                                    <option key={i} value={i} className="bg-gray-800">
+                                        {displayName !== r.email ? `${displayName} (${r.email})` : r.email}
+                                    </option>
+                                );
+                            })}
                         </select>
                     </div>
                 )}

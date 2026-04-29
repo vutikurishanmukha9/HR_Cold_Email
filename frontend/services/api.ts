@@ -4,6 +4,8 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+import { TrackingStats, TrackingDetail, PaginationMeta } from '../types';
+
 // Configuration
 const CONFIG = {
     timeout: 30000, // 30 seconds
@@ -403,6 +405,41 @@ class ApiClient {
         }>(`/campaigns/run/${runId}/status`, {
             method: 'GET',
             skipRetry: true, // Don't retry polls to avoid pileups
+        });
+    }
+
+    /**
+     * Get tracking statistics (summary)
+     */
+    async getTrackingStats(campaignId?: string) {
+        const query = campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : '';
+        return this.request<{
+            success: boolean;
+            data: TrackingStats;
+        }>(`/track/stats${query}`, {
+            method: 'GET',
+        });
+    }
+
+    /**
+     * Get detailed paginated tracking records
+     */
+    async getTrackingDetails(page: number = 1, limit: number = 50, campaignId?: string) {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            limit: limit.toString(),
+        });
+        if (campaignId) params.append('campaignId', campaignId);
+        
+        return this.request<{
+            success: boolean;
+            data: {
+                summary: TrackingStats;
+                details: TrackingDetail[];
+                pagination: PaginationMeta;
+            };
+        }>(`/track/details?${params.toString()}`, {
+            method: 'GET',
         });
     }
 

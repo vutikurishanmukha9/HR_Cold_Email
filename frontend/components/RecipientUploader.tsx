@@ -23,6 +23,15 @@ const findValue = (row: any, potentialKeys: string[]): string => {
   return '';
 };
 
+// Helper to sanitize header strings to camelCase (e.g. "First Name" -> "firstName")
+const sanitizeKey = (key: string): string => {
+  const cleaned = key.replace(/[^a-zA-Z0-9]/g, ' ').trim();
+  return cleaned.split(/\s+/).map((word, index) => {
+    if (index === 0) return word.toLowerCase();
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  }).join('');
+};
+
 const RecipientUploader: React.FC<RecipientUploaderProps> = ({ onUpload, onBack }) => {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -55,12 +64,23 @@ const RecipientUploader: React.FC<RecipientUploaderProps> = ({ onUpload, onBack 
         const worksheet = workbook.Sheets[sheetName];
         const json = window.XLSX.utils.sheet_to_json(worksheet);
 
-        const parsedRecipients: Recipient[] = json.map((row: any): Recipient => ({
-          fullName: findValue(row, ['Full name', 'Name', 'Last name']),
-          email: findValue(row, ['Email address', 'Email']),
-          companyName: findValue(row, ['Company/organization name', 'Company', 'Organization']),
-          jobTitle: findValue(row, ['Job title/designation', 'Job Title', 'Title', 'Designation']),
-        })).filter((r: Recipient) => r.fullName && r.email && r.companyName);
+        const parsedRecipients: Recipient[] = json.map((row: any): Recipient => {
+          // Find the email using common patterns before sanitization
+          const email = findValue(row, ['Email address', 'Email', 'E-mail', 'Contact Email']);
+          
+          const sanitizedRow: Record<string, any> = {};
+          Object.keys(row).forEach(key => {
+            const camelKey = sanitizeKey(key);
+            if (camelKey) {
+              sanitizedRow[camelKey] = String(row[key]).trim();
+            }
+          });
+
+          return {
+            ...sanitizedRow,
+            email: email || sanitizedRow.email || '' // explicitly map the email property
+          };
+        }).filter((r: Recipient) => r.email); // Only require email to be valid
 
         if (parsedRecipients.length === 0) {
           setError('No valid recipients found. Ensure your file has Name, Email, and Company columns.');
@@ -112,10 +132,10 @@ const RecipientUploader: React.FC<RecipientUploaderProps> = ({ onUpload, onBack 
     e.stopPropagation();
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+    if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv'))) {
       processFile(file);
     } else {
-      setError('Please drop a valid Excel file (.xlsx or .xls).');
+      setError('Please drop a valid file (.xlsx, .xls, .csv).');
     }
   };
 
@@ -164,12 +184,12 @@ const RecipientUploader: React.FC<RecipientUploaderProps> = ({ onUpload, onBack 
 
           <div>
             <p className="font-medium mb-1" style={{ color: '#f1f5f9' }}>
-              {fileName ? `📄 ${fileName}` : 'Drop your Excel file here'}
+              {fileName ? `📄 ${fileName}` : 'Drop your CSV or Excel file here'}
             </p>
-            <p className="text-sm" style={{ color: '#64748b' }}>or click to browse • XLSX, XLS up to 5MB</p>
+            <p className="text-sm" style={{ color: '#64748b' }}>or click to browse • CSV, XLSX, XLS up to 5MB</p>
           </div>
 
-          <input id="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept=".xlsx,.xls" />
+          <input id="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept=".xlsx,.xls,.csv" />
         </div>
       </div>
 
@@ -211,19 +231,21 @@ const RecipientUploader: React.FC<RecipientUploaderProps> = ({ onUpload, onBack 
               <table className="w-full">
                 <thead>
                   <tr style={{ background: 'rgba(148, 163, 184, 0.06)' }}>
-                    <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase" style={{ color: '#64748b', letterSpacing: '0.08em' }}>Name</th>
-                    <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase" style={{ color: '#64748b', letterSpacing: '0.08em' }}>Email</th>
-                    <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase" style={{ color: '#64748b', letterSpacing: '0.08em' }}>Company</th>
-                    <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase" style={{ color: '#64748b', letterSpacing: '0.08em' }}>Title</th>
+                    {Object.keys(recipients[0] || {}).slice(0, 5).map((key) => (
+                      <th key={key} className="px-4 py-3 text-left text-[10px] font-semibold uppercase" style={{ color: '#64748b', letterSpacing: '0.08em' }}>
+                        {key}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {recipients.slice(0, 10).map((recipient, index) => (
                     <tr key={index} className="border-t" style={{ borderColor: 'rgba(148, 163, 184, 0.08)' }}>
-                      <td className="px-4 py-3 text-sm font-medium" style={{ color: '#f1f5f9' }}>{recipient.fullName}</td>
-                      <td className="px-4 py-3 text-sm" style={{ color: '#94a3b8' }}>{recipient.email}</td>
-                      <td className="px-4 py-3 text-sm" style={{ color: '#94a3b8' }}>{recipient.companyName}</td>
-                      <td className="px-4 py-3 text-sm" style={{ color: '#64748b' }}>{recipient.jobTitle || '—'}</td>
+                      {Object.keys(recipients[0] || {}).slice(0, 5).map((key) => (
+                        <td key={key} className="px-4 py-3 text-sm" style={{ color: key === 'email' ? '#94a3b8' : '#f1f5f9' }}>
+                          {recipient[key] || '—'}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>

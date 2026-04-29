@@ -7,13 +7,12 @@ interface EmailComposerProps {
     onCompose: (template: EmailTemplate) => void;
     onBack: () => void;
     recipients?: any[];
+    availableTags?: string[];
 }
-
-const personalizationTags = ['{fullName}', '{companyName}', '{jobTitle}'];
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
 const MAX_SUBJECT_LENGTH = 200;
 
-const EmailComposer: React.FC<EmailComposerProps> = ({ initialTemplate, onCompose, onBack }) => {
+const EmailComposer: React.FC<EmailComposerProps> = ({ initialTemplate, onCompose, onBack, availableTags = [] }) => {
     const [subject, setSubject] = useState(initialTemplate.subject);
     const [body, setBody] = useState(initialTemplate.body);
     const [attachments, setAttachments] = useState<File[]>(initialTemplate.attachments || []);
@@ -274,20 +273,28 @@ const EmailComposer: React.FC<EmailComposerProps> = ({ initialTemplate, onCompos
                             Personalization Tags
                         </h4>
                         <p className="text-sm mb-4" style={{ color: '#94a3b8' }}>Click to copy, then paste into your email</p>
-                        <div className="space-y-2">
-                            {personalizationTags.map(tag => (
-                                <button
-                                    key={tag}
-                                    onClick={() => copyToClipboard(tag)}
-                                    className="w-full text-left px-4 py-3 text-sm rounded-lg transition-all duration-300 hover:scale-[1.02] flex items-center justify-between"
-                                    style={{
-                                        background: copiedTag === tag ? 'rgba(20, 184, 166, 0.15)' : 'rgba(148, 163, 184, 0.06)',
-                                        border: copiedTag === tag ? '1px solid rgba(20, 184, 166, 0.4)' : '1px solid rgba(148, 163, 184, 0.12)',
-                                        color: copiedTag === tag ? '#14b8a6' : '#fb7185'
-                                    }}
-                                >
-                                    <span>{tag}</span>
-                                    {copiedTag === tag && (
+                        
+                        {availableTags.length === 0 ? (
+                            <div className="text-sm p-4 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-center">
+                                Upload recipients to see your dynamic tags here.
+                            </div>
+                        ) : (
+                            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                {availableTags.map(tag => {
+                                    const formattedTag = `{${tag}}`;
+                                    return (
+                                        <button
+                                            key={tag}
+                                            onClick={() => copyToClipboard(formattedTag)}
+                                            className="w-full text-left px-4 py-3 text-sm rounded-lg transition-all duration-300 hover:scale-[1.02] flex items-center justify-between"
+                                            style={{
+                                                background: copiedTag === formattedTag ? 'rgba(20, 184, 166, 0.15)' : 'rgba(148, 163, 184, 0.06)',
+                                                border: copiedTag === formattedTag ? '1px solid rgba(20, 184, 166, 0.4)' : '1px solid rgba(148, 163, 184, 0.12)',
+                                                color: copiedTag === formattedTag ? '#14b8a6' : '#fb7185'
+                                            }}
+                                        >
+                                            <span>{formattedTag}</span>
+                                            {copiedTag === formattedTag && (
                                         <span className="text-xs flex items-center gap-1" style={{ color: '#14b8a6' }}>
                                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -295,9 +302,11 @@ const EmailComposer: React.FC<EmailComposerProps> = ({ initialTemplate, onCompos
                                             Copied!
                                         </span>
                                     )}
-                                </button>
-                            ))}
-                        </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 </aside>
             </div>

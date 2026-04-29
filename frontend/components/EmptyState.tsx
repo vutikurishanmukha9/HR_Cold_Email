@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface EmptyStateProps {
-    type: 'recipients' | 'campaigns' | 'credentials' | 'general';
+    type: 'recipients' | 'campaigns' | 'credentials' | 'general' | 'analytics';
     title?: string;
     message?: string;
     action?: {
@@ -47,6 +47,14 @@ const EmptyState: React.FC<EmptyStateProps> = ({ type, title, message, action })
                 <path d="M80 90 L120 90 M80 110 L110 110" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity="0.5" />
             </svg>
         ),
+        analytics: (
+            <svg className="w-32 h-32 text-gray-600" viewBox="0 0 200 200" fill="none">
+                <rect x="40" y="60" width="120" height="100" rx="8" stroke="currentColor" strokeWidth="2" />
+                <path d="M60 140 L80 100 L110 120 L140 70" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="140" cy="70" r="4" fill="currentColor" />
+                <path d="M40 140 L160 140" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" opacity="0.3" />
+            </svg>
+        ),
     };
 
     const defaults: Record<string, { title: string; message: string }> = {
@@ -65,6 +73,10 @@ const EmptyState: React.FC<EmptyStateProps> = ({ type, title, message, action })
         general: {
             title: 'Nothing Here',
             message: 'This section is empty.',
+        },
+        analytics: {
+            title: 'No Tracking Data',
+            message: 'Send your first campaign to start seeing open and click tracking analytics here.',
         },
     };
 

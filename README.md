@@ -11,7 +11,7 @@ HiHR streamlines HR recruitment and outreach workflows by enabling professionals
 ## Key Features
 
 ### Email Campaign Management
-- **Personalized Emails** — Dynamic placeholders (`{fullName}`, `{companyName}`, `{jobTitle}`) for tailored messaging
+- **Personalized Emails** — Fully dynamic personalization tags (e.g. `{firstName}`, `{favoriteColor}`) auto-generated from any uploaded CSV/Excel file.
 - **Rich Text Editor** — Compose professional emails with formatting, lists, and hyperlinks
 - **Attachments** — Support for files up to 10MB per attachment
 - **Scheduling** — Schedule campaigns for future delivery
@@ -19,7 +19,8 @@ HiHR streamlines HR recruitment and outreach workflows by enabling professionals
 - **Copy to Clipboard** — One-click copy of composed email content
 
 ### Data Management
-- **Bulk Upload** — Import recipients from Excel files (.xlsx, .xls)
+- **Bulk Upload** — Import recipients from CSV and Excel files (.csv, .xlsx, .xls)
+- **Dynamic Data Processing** — Intelligent column parsing automatically converts headers to camelCase tags.
 - **Server-side Excel Parsing** — Backend upload endpoint with Multer + SheetJS
 - **Duplicate Detection** — Automatic identification and removal of duplicate emails
 - **Recipient Selection** — Choose specific recipients before sending
@@ -219,13 +220,10 @@ HiHR streamlines HR recruitment and outreach workflows by enabling professionals
 > For information on creating a Google App Password, visit the [Google Help Center](https://support.google.com/accounts/answer/185833)
 
 ### Step 3: Upload Recipients
-- Prepare an Excel file with columns:
-  - `Full name` or `Name`
-  - `Email address` or `Email`
-  - `Company` or `Organization`
-  - `Job title` (optional)
+- Prepare a CSV or Excel file. Only an `Email` column is strictly required.
+- You may include any other custom columns (e.g. `First Name`, `Company`, `Notes`) and they will automatically be converted into dynamic personalization tags for your email template.
 - Drag and drop or select your file (max 5MB)
-- Review the parsed recipients and duplicates are auto-removed
+- Review the parsed recipients and dynamic columns in the preview table. Duplicates are auto-removed.
 
 ### Step 4: Compose Email
 - Write your subject line (max 200 characters)

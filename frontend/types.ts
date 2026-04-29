@@ -10,10 +10,8 @@ export interface Credentials {
  * Recipient information for personalized emails
  */
 export interface Recipient {
-  fullName: string;
   email: string;
-  companyName: string;
-  jobTitle?: string;
+  [key: string]: any;
 }
 
 /**
@@ -41,4 +39,44 @@ export enum EmailStatus {
 export interface SendProgressState {
   status: EmailStatus;
   error?: string;
+}
+
+/**
+ * Tracking statistics overview
+ */
+export interface TrackingStats {
+  totalSent: number;
+  totalOpened: number;
+  openRate: number;
+  totalClicks: number;
+  uniqueClicks: number;
+}
+
+/**
+ * Detailed tracking record for a single recipient
+ */
+export interface TrackingDetail {
+  recipientEmail: string;
+  subject?: string;
+  campaignId?: string;
+  opened: boolean;
+  openCount: number;
+  firstOpenedAt?: string;
+  lastOpenedAt?: string;
+  clicks: number;
+  links: Array<{
+    url: string;
+    clicks: number;
+    firstClickedAt?: string;
+  }>;
+}
+
+/**
+ * Pagination metadata
+ */
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }

@@ -43,9 +43,7 @@ interface SendCampaignRequest {
     body: string;
     recipients: Array<{
         email: string;
-        fullName: string;
-        companyName: string;
-        jobTitle?: string;
+        [key: string]: any;
     }>;
     attachments?: Array<{
         filename: string;
@@ -241,23 +239,15 @@ export class CampaignController {
 
                     try {
                         // Personalize subject and body
-                        const personalizedSubject = emailService.personalizeContent(subject, {
-                            fullName: recipient.fullName,
-                            companyName: recipient.companyName,
-                            jobTitle: recipient.jobTitle || '',
-                        });
-
-                        const personalizedBody = emailService.personalizeContent(body, {
-                            fullName: recipient.fullName,
-                            companyName: recipient.companyName,
-                            jobTitle: recipient.jobTitle || '',
-                        });
+                        const personalizedSubject = emailService.personalizeContent(subject, recipient);
+                        const personalizedBody = emailService.personalizeContent(body, recipient);
 
                         // Prepare email with tracking (pixel + link rewriting)
                         const { html: trackedBody } = await emailService.prepareTrackedEmail({
                             recipientEmail: recipient.email,
                             subject: personalizedSubject,
                             html: personalizedBody,
+                            campaignId: runId,
                         });
 
                         // Send email with attachments

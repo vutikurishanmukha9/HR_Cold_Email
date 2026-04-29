@@ -9,6 +9,7 @@ import ReviewAndSend from '../components/ReviewAndSend';
 import DashboardStats from '../components/DashboardStats';
 import Confetti from '../components/Confetti';
 import EmailPreview from '../components/EmailPreview';
+import AnalyticsDashboard from '../components/analytics/AnalyticsDashboard';
 import { useToast } from '../components/Toast';
 
 /**
@@ -19,6 +20,25 @@ const DashboardPage: React.FC = () => {
     const { user, logout } = useAuth();
     const campaign = useCampaign();
     const toast = useToast();
+
+    // Tab state from URL
+    const getInitialTab = () => {
+        const searchParams = new URLSearchParams(window.location.search);
+        return searchParams.get('tab') === 'analytics' ? 'analytics' : 'campaign';
+    };
+    
+    const [activeTab, setActiveTab] = useState<'campaign' | 'analytics'>(getInitialTab);
+
+    // Update URL when tab changes
+    useEffect(() => {
+        const url = new URL(window.location.href);
+        if (activeTab === 'analytics') {
+            url.searchParams.set('tab', 'analytics');
+        } else {
+            url.searchParams.delete('tab');
+        }
+        window.history.replaceState({}, '', url.toString());
+    }, [activeTab]);
 
     // UI state
     const [showConfetti, setShowConfetti] = useState(false);
@@ -122,7 +142,7 @@ const DashboardPage: React.FC = () => {
                 </div>
 
                 {/* Dashboard Stats - Show when there's activity */}
-                {(totalSent > 0 || campaign.recipients.length > 0) && (
+                {activeTab === 'campaign' && (totalSent > 0 || campaign.recipients.length > 0) && (
                     <DashboardStats
                         totalSent={totalSent}
                         successRate={successRate}
@@ -131,14 +151,37 @@ const DashboardPage: React.FC = () => {
                     />
                 )}
 
-                {/* Step Indicator */}
-                <StepIndicator currentStep={campaign.step} totalSteps={campaign.totalSteps} />
+                {/* Tab Switcher */}
+                <div className="flex justify-center mb-6">
+                    <div className="bg-black/30 p-1 rounded-full inline-flex" style={{ border: '1px solid rgba(148, 163, 184, 0.1)' }}>
+                        <button
+                            onClick={() => setActiveTab('campaign')}
+                            className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${activeTab === 'campaign' ? 'bg-white/10 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'}`}
+                        >
+                            Campaign Builder
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('analytics')}
+                            className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${activeTab === 'analytics' ? 'bg-white/10 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'}`}
+                        >
+                            Analytics
+                        </button>
+                    </div>
+                </div>
 
-                {/* Main Content with Step Transition */}
-                <div className="glass-card p-4 sm:p-8 mt-6">
-                    <div className="step-enter">
-                        {campaign.step === 1 && (
-                            <CredentialsForm
+                {/* Main Content Area */}
+                {activeTab === 'analytics' ? (
+                    <AnalyticsDashboard />
+                ) : (
+                    <>
+                        {/* Step Indicator */}
+                        <StepIndicator currentStep={campaign.step} totalSteps={campaign.totalSteps} />
+
+                        {/* Main Content with Step Transition */}
+                        <div className="glass-card p-4 sm:p-8 mt-6">
+                            <div className="step-enter">
+                                {campaign.step === 1 && (
+                                    <CredentialsForm
                                 onSave={handleCredentialsSave}
                                 initialCredentials={campaign.credentials}
                             />
@@ -156,6 +199,7 @@ const DashboardPage: React.FC = () => {
                                 onCompose={campaign.handleEmailCompose}
                                 onBack={campaign.handleBack}
                                 recipients={campaign.recipients}
+                                availableTags={campaign.availableTags}
                                 initialTemplate={campaign.emailTemplate}
                             />
                         )}
@@ -226,8 +270,10 @@ const DashboardPage: React.FC = () => {
                         )}
                     </div>
                 </div>
+            </>
+            )}
 
-                {/* Footer */}
+            {/* Footer */}
                 <div className="text-center mt-8 text-xs" style={{ color: '#475569' }}>
                     <p>
                         Powered by <span className="font-semibold" style={{ color: '#94a3b8' }}>HiHR</span> · Credentials encrypted end-to-end

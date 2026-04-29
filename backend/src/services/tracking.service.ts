@@ -265,6 +265,73 @@ export function getTrackingStats(campaignId?: string): {
 }
 
 /**
+ * Get paginated tracking details for a campaign or all emails
+ */
+export function getTrackingDetailsPaginated(
+    page: number = 1,
+    limit: number = 50,
+    campaignId?: string
+): {
+    totalSent: number;
+    totalOpened: number;
+    openRate: number;
+    totalClicks: number;
+    uniqueClicks: number;
+    records: TrackingRecord[];
+    pagination: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }
+} {
+    let records = loadTrackingRecords();
+
+    if (campaignId) {
+        records = records.filter(r => r.campaignId === campaignId);
+    }
+
+    // Sort by createdAt descending (newest first)
+    records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const totalSent = records.length;
+    const totalOpened = records.filter(r => r.openCount > 0).length;
+    const openRate = totalSent > 0 ? Math.round((totalOpened / totalSent) * 100) : 0;
+
+    let totalClicks = 0;
+    let uniqueClicks = 0;
+
+    for (const record of records) {
+        for (const link of record.links) {
+            totalClicks += link.clickCount;
+            if (link.clickCount > 0) {
+                uniqueClicks += 1;
+            }
+        }
+    }
+
+    // Pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const paginatedRecords = records.slice(startIndex, endIndex);
+
+    return {
+        totalSent,
+        totalOpened,
+        openRate,
+        totalClicks,
+        uniqueClicks,
+        records: paginatedRecords,
+        pagination: {
+            total: totalSent,
+            page,
+            limit,
+            totalPages: Math.ceil(totalSent / limit)
+        }
+    };
+}
+
+/**
  * Generate HTML for tracking pixel
  */
 export function generateTrackingPixelHtml(trackingToken: string): string {
@@ -301,5 +368,6 @@ export default {
     recordLinkClick,
     rewriteLinksForTracking,
     getTrackingStats,
+    getTrackingDetailsPaginated,
     generateTrackingPixelHtml,
 };

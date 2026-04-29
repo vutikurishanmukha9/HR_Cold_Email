@@ -8,10 +8,26 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
  * Hook for managing campaign workflow state
  * Extracts complex state logic from App component
  */
+
+const mapStatusToEnum = (status: string): EmailStatus => {
+    switch (status.toLowerCase()) {
+        case 'queued': return EmailStatus.Queued;
+        case 'sending': return EmailStatus.Sending;
+        case 'sent': return EmailStatus.Sent;
+        case 'failed': return EmailStatus.Failed;
+        default: return EmailStatus.Queued;
+    }
+};
+
 export function useCampaign() {
     const [step, setStep] = useState(1);
     const [credentials, setCredentials] = useState<Credentials | null>(null);
     const [recipients, setRecipients] = useState<Recipient[]>([]);
+    
+    // Compute available tags from the first recipient, excluding 'email'
+    const availableTags = recipients.length > 0 
+        ? Object.keys(recipients[0]).filter(key => key !== 'email')
+        : [];
     const [emailTemplate, setEmailTemplate] = useState<EmailTemplate>({
         subject: '',
         body: '',
@@ -154,7 +170,7 @@ export function useCampaign() {
                 setSendProgress(prev => ({
                     ...prev,
                     [data.email]: {
-                        status: data.status as EmailStatus,
+                        status: mapStatusToEnum(data.status),
                         error: data.error,
                     }
                 }));
@@ -196,7 +212,7 @@ export function useCampaign() {
                             const newProgress = { ...prev };
                             Object.entries(status.recipients).forEach(([email, data]) => {
                                 newProgress[email] = {
-                                    status: data.status as EmailStatus,
+                                    status: mapStatusToEnum(data.status),
                                     error: data.error,
                                 };
                             });
@@ -254,6 +270,7 @@ export function useCampaign() {
         step,
         credentials,
         recipients,
+        availableTags,
         emailTemplate,
         sendProgress,
         isSending,

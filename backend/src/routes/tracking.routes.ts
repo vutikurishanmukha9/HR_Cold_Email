@@ -3,7 +3,7 @@
  * Handles tracking pixel requests and link click redirects
  */
 import { Router, Request, Response } from 'express';
-import { recordEmailOpen, recordLinkClick, getTrackingStats } from '../services/tracking.service';
+import { recordEmailOpen, recordLinkClick, getTrackingStats, getTrackingDetailsPaginated } from '../services/tracking.service';
 import { authenticate } from '../middleware/auth';
 import logger from '../utils/logger';
 
@@ -103,13 +103,17 @@ router.get('/stats', authenticate, async (req: Request, res: Response) => {
  */
 router.get('/details', authenticate, async (req: Request, res: Response) => {
     try {
-        const { campaignId } = req.query;
-        const stats = getTrackingStats(campaignId as string | undefined);
+        const { campaignId, page = '1', limit = '50' } = req.query;
+        const pageNum = parseInt(page as string, 10) || 1;
+        const limitNum = parseInt(limit as string, 10) || 50;
+
+        const stats = getTrackingDetailsPaginated(pageNum, limitNum, campaignId as string | undefined);
 
         // Transform records for frontend
         const details = stats.records.map(record => ({
             recipientEmail: record.recipientEmail,
             subject: record.subject,
+            campaignId: record.campaignId,
             opened: record.openCount > 0,
             openCount: record.openCount,
             firstOpenedAt: record.firstOpenedAt,
@@ -130,8 +134,10 @@ router.get('/details', authenticate, async (req: Request, res: Response) => {
                     totalOpened: stats.totalOpened,
                     openRate: stats.openRate,
                     totalClicks: stats.totalClicks,
+                    uniqueClicks: stats.uniqueClicks,
                 },
                 details,
+                pagination: stats.pagination
             },
         });
     } catch (error: any) {
